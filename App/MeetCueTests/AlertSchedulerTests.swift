@@ -7,13 +7,18 @@ import Testing
 struct AlertSchedulerTests {
     let source = FakeCalendarSource()
 
-    func makeModel(notes: NoteStore = NoteStore(repository: FlakyNoteRepository()), clock: @escaping () -> Date) -> (MeetingStore, OverlayModel) {
+    func makeModel(
+        notes: NoteStore = NoteStore(repository: FlakyNoteRepository()),
+        settings: AppSettings = AppSettings(storage: InMemorySettingsStorage()),
+        clock: @escaping () -> Date
+    ) -> (MeetingStore, OverlayModel) {
         let store = MeetingStore(source: source, now: clock, calendar: AppFixtures.calendar)
         let model = OverlayModel(
             store: store,
             quiet: QuietMode(storage: InMemoryQuietStorage()),
             notes: notes,
             dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
+            settings: settings,
             clock: clock,
             calendar: AppFixtures.calendar,
             openURL: { _ in }
@@ -65,6 +70,18 @@ struct AlertSchedulerTests {
         scheduler.beforeRefresh = { carrier.run(now: clock()) }
         scheduler.start()
         #expect(model.notesCardMeeting?.start == AppFixtures.at(14, 30, day: 11))
+    }
+
+    @Test func settlesWhenTheSettingsChange() async {
+        let settings = AppSettings(storage: InMemorySettingsStorage())
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30))]
+        let (store, model) = makeModel(settings: settings) { AppFixtures.at(14, 24) }
+        store.refresh()
+        let scheduler = AlertScheduler(model: model)
+        scheduler.start()
+        #expect(model.alertMeetings.isEmpty)
+        settings.leadTime = 10
+        #expect(await eventually { model.alertMeetings.count == 1 })
     }
 
     @Test func settlesWhenTheTimerFires() async {

@@ -16,10 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let store = MeetingStore(source: EventKitSource())
         let quiet = QuietMode()
+        let settings = AppSettings()
         let notes = NoteStore(repository: Self.noteRepository())
         self.notes = notes
         let model = MenuBarModel(store: store, quiet: quiet, notes: notes)
-        let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts())
+        let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts(), settings: settings)
         let visibility = CalendarVisibility(store: store)
         let calendarWindow = CalendarWindowController(model: CalendarWindowModel(store: store, notes: notes, visibility: visibility))
         self.calendarWindow = calendarWindow

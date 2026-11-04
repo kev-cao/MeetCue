@@ -18,7 +18,7 @@ struct CancelNotice: Equatable {
 
 /// Each timed meeting's overlay state, the actions the alert, pill and notes card offer, and what
 /// they show. Overlay windows render it. `refresh()` must run whenever the store's meetings or filter, quiet
-/// mode, or the clock change, because `schedule` doesn't depend on them; `AlertScheduler` does so.
+/// mode, the alert settings, or the clock change, because `schedule` doesn't depend on them; `AlertScheduler` does so.
 @MainActor
 @Observable
 final class OverlayModel {
@@ -37,7 +37,7 @@ final class OverlayModel {
     let store: MeetingStore
     let quiet: QuietMode
     let notes: NoteStore
-    let timing: AlertTiming
+    let settings: AppSettings
     private(set) var entries: [OccurrenceID: Entry] = [:]
     private(set) var notice: CancelNotice?
     private(set) var schedule = OverlaySchedule(wake: nil, holdsActivity: false)
@@ -55,7 +55,7 @@ final class OverlayModel {
         quiet: QuietMode,
         notes: NoteStore,
         dismissed: DismissedAlerts,
-        timing: AlertTiming = .standard,
+        settings: AppSettings,
         clock: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
         locale: Locale = .autoupdatingCurrent,
@@ -65,7 +65,7 @@ final class OverlayModel {
         self.quiet = quiet
         self.notes = notes
         self.dismissed = dismissed
-        self.timing = timing
+        self.settings = settings
         self.clock = clock
         self.calendar = calendar
         self.locale = locale
@@ -73,6 +73,8 @@ final class OverlayModel {
     }
 
     func currentTime() -> Date { clock() }
+
+    var timing: AlertTiming { settings.alertTiming }
 
     /// Meetings sharing the full-screen alert card, earliest first.
     var alertMeetings: [Meeting] { meetings(in: .alert) }
@@ -289,9 +291,8 @@ final class OverlayModel {
         entries.values.filter { $0.state == state }.map(\.meeting).sorted(by: Self.isOrderedBefore)
     }
 
-    /// The card appears at the start, only for meetings with notes, and hides at the end.
     private func notesPolicy(for meeting: Meeting) -> NotesPolicy {
-        NotesPolicy(hasNotes: notes.hasNotes(meeting.id))
+        settings.notesPolicy(hasNotes: notes.hasNotes(meeting.id))
     }
 
     /// The meeting in progress whose card `.show` would bring up, latest start first.

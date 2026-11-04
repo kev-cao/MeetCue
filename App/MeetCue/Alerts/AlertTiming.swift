@@ -1,7 +1,7 @@
 import Foundation
 import MeetCueCore
 
-/// When alerts appear and how long they wait. The Settings window will make the first three configurable.
+/// When alerts appear and how long they wait. `AppSettings` sets the lead time and snooze length.
 struct AlertTiming: Equatable {
     var leadTime: TimeInterval = 120
     /// How long after start a missed alert still appears, e.g. after waking the Mac.

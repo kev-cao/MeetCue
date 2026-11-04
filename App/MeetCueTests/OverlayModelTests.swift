@@ -9,6 +9,7 @@ final class OverlayModelTests {
     let dismissedStorage = InMemoryDismissedAlertStorage()
     let quiet = QuietMode(storage: InMemoryQuietStorage())
     let notes = NoteStore(repository: FlakyNoteRepository(), saveDelay: .seconds(60))
+    let settings = AppSettings(storage: InMemorySettingsStorage())
     var now = AppFixtures.at(14, 0)
     var opened: [URL] = []
     lazy var store = MeetingStore(source: source, now: { [unowned self] in now }, calendar: AppFixtures.calendar)
@@ -24,6 +25,7 @@ final class OverlayModelTests {
             quiet: quiet,
             notes: notes,
             dismissed: DismissedAlerts(storage: dismissedStorage),
+            settings: settings,
             clock: { [unowned self] in now },
             calendar: AppFixtures.calendar,
             locale: Locale(identifier: "en_US"),
@@ -472,6 +474,43 @@ final class OverlayModelTests {
         store.filter = CalendarFilter()
         at(AppFixtures.at(14, 29), model)
         #expect(model.alertMeetings.isEmpty)
+    }
+
+    @Test func leadTimeFollowsTheSetting() {
+        settings.leadTime = 5
+        let model = makeModel()
+        at(AppFixtures.at(14, 24), model)
+        #expect(model.alertMeetings.isEmpty)
+        at(AppFixtures.at(14, 25), model)
+        #expect(model.alertMeetings.map(\.title) == ["Team Sync"])
+    }
+
+    @Test func snoozeLengthFollowsTheSetting() {
+        settings.snoozeLength = 5
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        model.snoozeAlert()
+        #expect(model.state(of: syncID) == .snoozed(until: AppFixtures.at(14, 33)))
+    }
+
+    @Test func notesCardFollowsTheSettings() {
+        let model = makeModel()
+        notes.setMarkdown("Agenda", for: store.meetings[0])
+        settings.showNotesAtStart = false
+        at(AppFixtures.at(14, 36), model)
+        #expect(model.state(of: syncID) == .done)
+        model.showNotesCard()
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+        settings.hideNotesAtEnd = false
+        at(AppFixtures.at(15, 0), model)
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+    }
+
+    @Test func meetingsWithoutNotesGetTheCardWhenOnlyWithNotesIsOff() {
+        settings.notesOnlyWithNotes = false
+        let model = makeModel()
+        at(AppFixtures.at(14, 36), model)
+        #expect(model.notesCardMeeting?.title == "Team Sync")
     }
 
     @Test func allDayEventsStayOutOfTheOverlays() {

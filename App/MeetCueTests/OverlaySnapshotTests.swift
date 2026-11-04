@@ -21,6 +21,7 @@ struct OverlaySnapshotTests {
             quiet: QuietMode(storage: InMemoryQuietStorage()),
             notes: notes,
             dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
+            settings: AppSettings(storage: InMemorySettingsStorage()),
             clock: { time },
             calendar: AppFixtures.calendar,
             locale: Locale(identifier: "en_US"),

@@ -42,6 +42,7 @@ struct SnapshotTests {
             quiet: model.quiet,
             notes: notes,
             dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
+            settings: AppSettings(storage: InMemorySettingsStorage()),
             clock: { AppFixtures.at(14, 6) },
             calendar: AppFixtures.calendar
         )
