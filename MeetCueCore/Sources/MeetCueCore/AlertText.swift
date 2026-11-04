@@ -32,7 +32,7 @@ public enum AlertText {
 
     /// How far the pill's ring has filled, from 0 at alert time to 1 at the start.
     public static func progress(toward start: Date, now: Date, leadTime: TimeInterval) -> Double {
-        guard leadTime > 0 else { return 1 }
+        guard leadTime > 0 else { return now >= start ? 1 : 0 }
         let remaining = start.timeIntervalSince(now)
         return min(1, max(0, 1 - remaining / leadTime))
     }

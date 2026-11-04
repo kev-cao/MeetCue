@@ -32,6 +32,20 @@ struct AlertTextTests {
         #expect(AlertText.progress(toward: start, now: Fixtures.at(14, 28), leadTime: 120) == 0)
         #expect(AlertText.progress(toward: start, now: Fixtures.at(14, 29), leadTime: 120) == 0.5)
         #expect(AlertText.progress(toward: start, now: Fixtures.at(14, 31), leadTime: 120) == 1)
-        #expect(AlertText.progress(toward: start, now: Fixtures.at(14, 29), leadTime: 0) == 1)
+        #expect(AlertText.progress(toward: start, now: Fixtures.at(14, 29), leadTime: 0) == 0)
+        #expect(AlertText.progress(toward: start, now: start, leadTime: 0) == 1)
+        #expect(AlertText.progress(toward: start, now: Fixtures.at(14, 31), leadTime: 0) == 1)
+    }
+
+    @Test func clockBoundaries() {
+        #expect(AlertText.countdown(to: start, now: Fixtures.at(14, 29).addingTimeInterval(0.5)) == Countdown(hasStarted: false, clock: "1:00"))
+        #expect(AlertText.countdown(to: start, now: start.addingTimeInterval(0.5)) == Countdown(hasStarted: true, clock: "0:00"))
+        #expect(AlertText.countdown(to: start, now: start.addingTimeInterval(-3725)) == Countdown(hasStarted: false, clock: "1:02:05"))
+    }
+
+    @Test func pillLineAtTheStartSaysStarted() {
+        let meeting = Fixtures.meeting(start: start)
+        #expect(AlertText.pillLine(for: meeting, now: start) == "Started 0:00 ago")
+        #expect(AlertText.pillLine(for: meeting, now: start.addingTimeInterval(-1)) == "Starts in 0:01")
     }
 }

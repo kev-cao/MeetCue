@@ -137,4 +137,37 @@ struct AlertRulesTests {
         #expect(AlertRules.nextAlert([(sync, .alert), (standup, .pill)], now: Fixtures.at(14, 30), config: config) == nil)
         #expect(AlertRules.nextAlert([(sync, .dismissed), (standup, .done)], now: Fixtures.at(14, 0), config: config) == nil)
     }
+
+    @Test func nextAlertIgnoresTimesAfterTheEnd() {
+        let short = Fixtures.meeting(start: Fixtures.at(14, 30), minutes: 30)
+        let snoozed = OverlayState.snoozed(until: Fixtures.at(15, 0, second: 30))
+        #expect(AlertRules.nextAlert([(short, snoozed)], now: Fixtures.at(14, 59, second: 40), config: config) == nil)
+        let inverted = Fixtures.meeting(start: Fixtures.at(14, 30), minutes: -3)
+        #expect(AlertRules.nextAlert([(inverted, .waiting)], now: Fixtures.at(14, 0), config: config) == nil)
+    }
+
+    @Test func nextAlertAgreesWithSettle() {
+        let now = Fixtures.at(14, 0)
+        let states: [OverlayState] = [
+            .waiting, .snoozed(until: Fixtures.at(14, 29)), .alert, .pill, .dismissed, .notesCard, .hidden, .done,
+        ]
+        let configs = [config, AlertConfig(leadTime: 120, quietUntil: .distantFuture)]
+        for config in configs {
+            for state in states {
+                let settled = settle(state, at: now, config: config)
+                let next = AlertRules.nextAlert([(sync, settled)], now: now, config: config)
+                if let next {
+                    let shown = settle(settled, at: next, config: config)
+                    #expect(shown == (settled == .waiting && config.isQuiet(at: next) ? .dismissed : .alert), "\(state)")
+                    #expect(settle(settled, at: next.addingTimeInterval(-1), config: config) == settled, "\(state)")
+                } else if settled != .alert {
+                    var minute = now
+                    while minute <= sync.end {
+                        #expect(settle(settled, at: minute, config: config) != .alert, "\(state) at \(minute)")
+                        minute = minute.addingTimeInterval(60)
+                    }
+                }
+            }
+        }
+    }
 }
