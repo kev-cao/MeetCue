@@ -4,7 +4,7 @@ import SwiftUI
 import Testing
 @testable import MeetCue
 
-/// Renders the menu bar label. Set `TEST_RUNNER_MEETCUE_SNAPSHOT_DIR` when running
+/// Renders the menu bar label and dropdown. Set `TEST_RUNNER_MEETCUE_SNAPSHOT_DIR` when running
 /// `xcodebuild test` to also write them as PNGs for a visual check.
 @MainActor
 struct SnapshotTests {
@@ -20,8 +20,15 @@ struct SnapshotTests {
         return MenuBarModel(store: store, quiet: QuietMode(defaults: testDefaults.defaults), clock: { time }, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
     }
 
-    @Test func rendersLabel() throws {
-        try render(MenuBarLabel(model: model(at: AppFixtures.at(14, 6))).background(.white), named: "menubar-label")
+    @Test func rendersLabelAndDropdown() throws {
+        let model = model(at: AppFixtures.at(14, 6))
+        try render(MenuBarLabel(model: model).background(.white), named: "menubar-label")
+        try render(DropdownView(model: model).background(.white), named: "dropdown")
+    }
+
+    @Test func rendersAccessPrompt() throws {
+        source.access = .denied
+        try render(DropdownView(model: model(at: AppFixtures.at(14, 6))).background(.white), named: "dropdown-access")
     }
 
     private func render(_ view: some View, named name: String) throws {
