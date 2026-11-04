@@ -7,6 +7,7 @@ import Testing
 struct MenuBarModelTests {
     let source = FakeCalendarSource()
     let quiet: QuietMode
+    let notes = NoteStore(repository: FlakyNoteRepository(), saveDelay: .seconds(60))
 
     init() {
         quiet = QuietMode(storage: InMemoryQuietStorage())
@@ -17,7 +18,7 @@ struct MenuBarModelTests {
         let store = MeetingStore(source: source, now: { current }, calendar: AppFixtures.calendar)
         source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30), location: "Room 4B · https://meet.google.com/abc")]
         store.refresh()
-        let model = MenuBarModel(store: store, quiet: quiet, clock: { current }, calendar: AppFixtures.calendar, locale: locale)
+        let model = MenuBarModel(store: store, quiet: quiet, notes: notes, clock: { current }, calendar: AppFixtures.calendar, locale: locale)
         return (model, { current = $0; model.tick() })
     }
 
@@ -102,5 +103,15 @@ struct MenuBarModelTests {
         source.access = .denied
         let (model, _) = makeModel(at: AppFixtures.at(13, 0))
         #expect(model.needsAccess)
+    }
+
+    @Test func addsTopicsToTheFeaturedMeeting() throws {
+        let (model, _) = makeModel(at: AppFixtures.at(14, 6))
+        let meeting = try #require(model.featured)
+        #expect(model.topicCount(for: meeting) == 0)
+        model.addTopic("  Budget\nfor Q1 ", to: meeting)
+        model.addTopic("Hiring", to: meeting)
+        #expect(notes.markdown(for: meeting.id) == "- [ ] Budget for Q1\n- [ ] Hiring")
+        #expect(model.topicCount(for: meeting) == 2)
     }
 }

@@ -5,6 +5,10 @@ import SwiftUI
 struct DropdownView: View {
     let model: MenuBarModel
     let dismiss: @MainActor () -> Void
+    /// Shows "Show notes card" when set.
+    var overlays: OverlayModel?
+    /// Shows "Open MeetCue" when set.
+    var openMeetCue: (@MainActor () -> Void)?
     var simulateMeeting: (@MainActor () -> Void)?
 
     var body: some View {
@@ -13,12 +17,21 @@ struct DropdownView: View {
                 AccessPrompt(store: model.store, dismiss: dismiss)
             } else if let meeting = model.featured {
                 MeetingCard(meeting: meeting, isLive: model.isLive(meeting), detail: model.detail(for: meeting), dismiss: dismiss)
+                AddTopicField(model: model, meeting: meeting, dismiss: dismiss)
             } else {
                 Text("No more meetings today")
                     .foregroundStyle(.secondary)
             }
             Divider()
             QuietModeMenu(model: model, dismiss: dismiss)
+            if let overlays {
+                MenuRow(title: "Show notes card", systemImage: "note.text", shortcut: "⌥⌘N") {
+                    overlays.showNotesCard()
+                    dismiss()
+                }
+                .keyboardShortcut("n", modifiers: [.command, .option])
+                .disabled(!overlays.canShowNotesCard)
+            }
             if model.showsSimulateItem, let simulateMeeting {
                 Button {
                     simulateMeeting()
@@ -31,6 +44,13 @@ struct DropdownView: View {
                 .buttonStyle(.plain)
             }
             Divider()
+            if let openMeetCue {
+                MenuRow(title: "Open MeetCue", systemImage: "calendar", shortcut: "⌥⌘O") {
+                    openMeetCue()
+                    dismiss()
+                }
+                .keyboardShortcut("o", modifiers: [.command, .option])
+            }
             Button {
                 NSApp.terminate(nil)
             } label: {
@@ -87,6 +107,74 @@ private struct MeetingCard: View {
                 .padding(.top, 4)
             }
         }
+    }
+}
+
+/// "Add a topic to Team Sync…", with the count of topics already noted.
+private struct AddTopicField: View {
+    let model: MenuBarModel
+    let meeting: Meeting
+    let dismiss: @MainActor () -> Void
+    @State private var topic = ""
+
+    private var canAdd: Bool { !topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                TextField("Add a topic to \(meeting.title)…", text: $topic)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .onSubmit(add)
+                    .accessibilityLabel("Add a topic to \(meeting.title)")
+                Button("Add topic", systemImage: "plus", action: add)
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(CircleButtonStyle(diameter: 24))
+                    .disabled(!canAdd)
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 6)
+            .frame(height: 34)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+            let count = model.topicCount(for: meeting)
+            if count > 0 {
+                Text(count == 1 ? "1 topic already noted" : "\(count) topics already noted")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 4)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func add() {
+        guard canAdd else { return }
+        model.addTopic(topic, to: meeting)
+        topic = ""
+        dismiss()
+    }
+}
+
+/// A full-width menu item with an icon and a shortcut hint.
+private struct MenuRow: View {
+    let title: String
+    let systemImage: String
+    let shortcut: String
+    let action: @MainActor () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Label(title, systemImage: systemImage)
+                Spacer()
+                Text(shortcut)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

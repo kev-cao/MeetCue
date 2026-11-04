@@ -9,6 +9,7 @@ import Testing
 @MainActor
 struct SnapshotTests {
     let source = FakeCalendarSource()
+    let notes = NoteStore(repository: FlakyNoteRepository())
 
     func model(at time: Date) -> MenuBarModel {
         source.snapshots = [
@@ -16,7 +17,7 @@ struct SnapshotTests {
         ]
         let store = MeetingStore(source: source, now: { time }, calendar: AppFixtures.calendar)
         store.refresh()
-        return MenuBarModel(store: store, quiet: QuietMode(storage: InMemoryQuietStorage()), clock: { time }, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
+        return MenuBarModel(store: store, quiet: QuietMode(storage: InMemoryQuietStorage()), notes: notes, clock: { time }, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
     }
 
     @Test func rendersLabelAndDropdown() throws {
@@ -29,6 +30,24 @@ struct SnapshotTests {
         let model = model(at: AppFixtures.at(14, 6))
         model.showsSimulateItem = true
         try render(DropdownView(model: model, dismiss: {}, simulateMeeting: {}).background(.white), named: "dropdown-option")
+    }
+
+    @Test func rendersTopicsAndNotesItems() throws {
+        let model = model(at: AppFixtures.at(14, 6))
+        let meeting = try #require(model.featured)
+        model.addTopic("Budget", to: meeting)
+        model.addTopic("Hiring plan", to: meeting)
+        let overlays = OverlayModel(
+            store: model.store,
+            quiet: model.quiet,
+            notes: notes,
+            dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
+            clock: { AppFixtures.at(14, 6) },
+            calendar: AppFixtures.calendar
+        )
+        let dropdown = DropdownView(model: model, dismiss: {}, overlays: overlays, openMeetCue: {})
+            .background(Color(white: 0.96))
+        try renderHosted(dropdown, size: CGSize(width: 300, height: 440), named: "dropdown-notes")
     }
 
     @Test func rendersAccessPrompt() throws {

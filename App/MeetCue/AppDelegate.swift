@@ -15,13 +15,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let quiet = QuietMode()
         let notes = NoteStore(repository: Self.noteRepository())
         self.notes = notes
-        let model = MenuBarModel(store: store, quiet: quiet)
+        let model = MenuBarModel(store: store, quiet: quiet, notes: notes)
         let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts())
         let scheduler = AlertScheduler(model: overlays)
         alertScheduler = scheduler
         overlayController = OverlayController(model: overlays, openMeeting: { _ in })
         statusItem = StatusItemController(model: model) { dismiss in
-            DropdownView(model: model, dismiss: dismiss, simulateMeeting: { overlays.simulateMeeting() })
+            DropdownView(model: model, dismiss: dismiss, overlays: overlays, simulateMeeting: { overlays.simulateMeeting() })
         }
         observeSystemChanges {
             store.refresh()

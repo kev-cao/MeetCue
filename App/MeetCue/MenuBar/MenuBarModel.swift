@@ -7,6 +7,7 @@ import Observation
 final class MenuBarModel {
     let store: MeetingStore
     let quiet: QuietMode
+    let notes: NoteStore
     private(set) var now: Date
     /// Set when the dropdown opens with Option held, to reveal "Simulate meeting in 2 minutes".
     var showsSimulateItem = false
@@ -17,12 +18,14 @@ final class MenuBarModel {
     init(
         store: MeetingStore,
         quiet: QuietMode,
+        notes: NoteStore,
         clock: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
         locale: Locale = .autoupdatingCurrent
     ) {
         self.store = store
         self.quiet = quiet
+        self.notes = notes
         self.clock = clock
         self.calendar = calendar
         self.locale = locale
@@ -68,6 +71,13 @@ final class MenuBarModel {
             ? countdown[1]
             : "at " + MenuBarText.clockTime(meeting.start, calendar: calendar, uses24Hour: settings.uses24HourClock)
         return "MeetCue, \(lead): \(meeting.title), \(when)" + quietSuffix
+    }
+
+    /// Topics still to bring up in the meeting's note.
+    func topicCount(for meeting: Meeting) -> Int { notes.openTopicCount(meeting.id) }
+
+    func addTopic(_ topic: String, to meeting: Meeting) {
+        notes.appendTopic(topic, to: meeting)
     }
 
     func isLive(_ meeting: Meeting) -> Bool { meeting.start <= now && now < meeting.end }
