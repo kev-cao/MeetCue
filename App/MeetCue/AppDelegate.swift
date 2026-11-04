@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
     private var alertScheduler: AlertScheduler?
     private var overlayController: OverlayController?
+    private var notes: NoteStore?
     private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -12,8 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let store = MeetingStore(source: EventKitSource())
         let quiet = QuietMode()
+        let notes = NoteStore(repository: Self.noteRepository())
+        self.notes = notes
         let model = MenuBarModel(store: store, quiet: quiet)
-        let overlays = OverlayModel(store: store, quiet: quiet, dismissed: DismissedAlerts())
+        let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts())
         let scheduler = AlertScheduler(model: overlays)
         alertScheduler = scheduler
         overlayController = OverlayController(model: overlays)
@@ -29,6 +32,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduler.start()
         if store.access == .notDetermined {
             Task { await store.requestAccess() }
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        notes?.flush()
+    }
+
+    private static func noteRepository() -> NoteRepository {
+        do {
+            return try SwiftDataNoteRepository(url: SwiftDataNoteRepository.defaultURL())
+        } catch {
+            return UnavailableNoteRepository()
         }
     }
 

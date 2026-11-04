@@ -10,14 +10,14 @@ struct OverlaySchedule: Equatable {
 }
 
 /// The pill's "<title> is no longer on your calendar" line, shown until `until`. A meeting disappears
-/// when it is cancelled, declined, or its calendar stops alerting.
+/// when it is cancelled, declined, or its calendar is hidden.
 struct CancelNotice: Equatable {
     let text: String
     let until: Date
 }
 
-/// Each alertable meeting's overlay state, the actions the alert and pill offer, and what they show.
-/// Overlay windows render it. `refresh()` must run whenever the store's meetings or filter, quiet
+/// Each timed meeting's overlay state, the actions the alert, pill and notes card offer, and what
+/// they show. Overlay windows render it. `refresh()` must run whenever the store's meetings or filter, quiet
 /// mode, or the clock change, because `schedule` doesn't depend on them; `AlertScheduler` does so.
 @MainActor
 @Observable
@@ -27,12 +27,16 @@ final class OverlayModel {
         var state: OverlayState
         /// A simulated meeting ignores quiet mode and isn't remembered across launches.
         var isSimulated: Bool
+        /// On a calendar with its Alert switch off, which acts as permanent quiet mode: no
+        /// full-screen alert, but the notes card still appears at the start.
+        var alertsOff = false
     }
 
     static let simulatedMeetingDelay: TimeInterval = 120
 
     let store: MeetingStore
     let quiet: QuietMode
+    let notes: NoteStore
     let timing: AlertTiming
     private(set) var entries: [OccurrenceID: Entry] = [:]
     private(set) var notice: CancelNotice?
@@ -49,6 +53,7 @@ final class OverlayModel {
     init(
         store: MeetingStore,
         quiet: QuietMode,
+        notes: NoteStore,
         dismissed: DismissedAlerts,
         timing: AlertTiming = .standard,
         clock: @escaping () -> Date = Date.init,
@@ -58,6 +63,7 @@ final class OverlayModel {
     ) {
         self.store = store
         self.quiet = quiet
+        self.notes = notes
         self.dismissed = dismissed
         self.timing = timing
         self.clock = clock
@@ -74,14 +80,20 @@ final class OverlayModel {
     /// Meetings shown as corner pills, earliest first.
     var pillMeetings: [Meeting] { meetings(in: .pill) }
 
+    /// The meeting on the notes card. When several have the card, the one that started last wins.
+    var notesCardMeeting: Meeting? { Self.latestStarted(meetings(in: .notesCard)) }
+
+    /// Whether `showNotesCard()` would bring up a card.
+    var canShowNotesCard: Bool { notesCardMeeting == nil && notesCardCandidate != nil }
+
     func state(of id: OccurrenceID) -> OverlayState? { entries[id]?.state }
 
     func timeRange(for meeting: Meeting) -> String {
         MenuBarText.timeRange(meeting.start, meeting.end, calendar: calendar, uses24Hour: ClockStyle.uses24Hour(locale))
     }
 
-    /// Topics noted for the meeting. Always 0 until notes exist, which hides the count.
-    func topicCount(for meeting: Meeting) -> Int { 0 }
+    /// Topics still to bring up: the note's unchecked task items.
+    func topicCount(for meeting: Meeting) -> Int { notes.openTopicCount(meeting.id) }
 
     // MARK: Actions
 
@@ -131,6 +143,25 @@ final class OverlayModel {
         dismissAlert()
     }
 
+    func hideNotesCard() {
+        apply(to: meetings(in: .notesCard)) { _ in .hide }
+    }
+
+    /// Brings back the card of the meeting in progress that started last, if it has notes.
+    func showNotesCard() {
+        guard let meeting = notesCardCandidate else { return }
+        apply(to: [meeting]) { _ in .show }
+    }
+
+    /// ⌥⌘N: hides the card if it's showing, or brings it back.
+    func toggleNotesCard() {
+        if notesCardMeeting != nil {
+            hideNotesCard()
+        } else {
+            showNotesCard()
+        }
+    }
+
     /// Adds a meeting starting in two minutes to the alert flow only, so the alert shows at once
     /// with a lead time of two minutes or more.
     func simulateMeeting() {
@@ -154,8 +185,9 @@ final class OverlayModel {
         dismissed.prune(before: calendar.startOfDay(for: now))
 
         var next: [OccurrenceID: Entry] = [:]
-        for meeting in MeetingFilter.alertable(store.meetings, filter: store.filter) {
-            next[meeting.id] = reconciled(meeting, isSimulated: false)
+        for meeting in store.meetings where !meeting.isAllDay {
+            let alertsOff = store.filter.alertOffCalendarIDs.contains(meeting.calendarID)
+            next[meeting.id] = reconciled(meeting, isSimulated: false, alertsOff: alertsOff)
         }
         for meeting in simulated {
             next[meeting.id] = reconciled(meeting, isSimulated: true)
@@ -183,7 +215,8 @@ final class OverlayModel {
         }
 
         for (id, entry) in next {
-            let config = timing.config(quietUntil: entry.isSimulated ? nil : quiet.until)
+            let quietUntil: Date? = entry.isSimulated ? nil : entry.alertsOff ? .distantFuture : quiet.until
+            let config = timing.config(quietUntil: quietUntil)
             let state = AlertRules.settle(entry.meeting, state: entry.state, now: now, config: config, notes: notesPolicy(for: entry.meeting))
             next[id]?.state = state
             if !entry.isSimulated && Self.isPastAlert(state) {
@@ -200,25 +233,34 @@ final class OverlayModel {
         if newSchedule != schedule { schedule = newSchedule }
     }
 
-    private func reconciled(_ meeting: Meeting, isSimulated: Bool) -> Entry {
+    private func reconciled(_ meeting: Meeting, isSimulated: Bool, alertsOff: Bool = false) -> Entry {
         guard var entry = entries[meeting.id] else {
             let isRecorded = !isSimulated && dismissed.contains(meeting)
             if !isSimulated && !isRecorded { dismissed.remove(meeting.id) }
             let state: OverlayState = isRecorded ? .dismissed : .waiting
-            return Entry(meeting: meeting, state: state, isSimulated: isSimulated)
+            return Entry(meeting: meeting, state: state, isSimulated: isSimulated, alertsOff: alertsOff)
         }
         if entry.meeting.start != meeting.start {
             entry.state = .waiting
             dismissed.remove(meeting.id)
         }
+        if alertsOff {
+            // Turning a calendar's alerts off closes its open alert as if dismissed.
+            switch entry.state {
+            case .alert, .snoozed, .pill: entry.state = .dismissed
+            default: break
+            }
+        }
         entry.meeting = meeting
+        entry.alertsOff = alertsOff
         return entry
     }
 
     private func makeSchedule(now: Date) -> OverlaySchedule {
         let pairs = entries.values.map { (meeting: $0.meeting, state: $0.state) }
+        let alerting = entries.values.filter { !$0.alertsOff }.map { (meeting: $0.meeting, state: $0.state) }
         let config = timing.config(quietUntil: nil)
-        let nextAlert = AlertRules.nextAlert(pairs, now: now, config: config)
+        let nextAlert = AlertRules.nextAlert(alerting, now: now, config: config)
         let holdsActivity = nextAlert.map { $0.timeIntervalSince(now) <= timing.activityLeadTime } ?? false
         var wakes = [AlertRules.nextWake(pairs, now: now, config: config), notice?.until]
         if let nextAlert, !holdsActivity {
@@ -247,9 +289,24 @@ final class OverlayModel {
         entries.values.filter { $0.state == state }.map(\.meeting).sorted(by: Self.isOrderedBefore)
     }
 
-    /// Without a notes store, no meeting has notes, so meetings go to `.done` where the notes card would appear.
+    /// The card appears at the start, only for meetings with notes, and hides at the end. The Settings
+    /// window will make the first three configurable.
     private func notesPolicy(for meeting: Meeting) -> NotesPolicy {
-        NotesPolicy(hasNotes: false)
+        NotesPolicy(hasNotes: notes.hasNotes(meeting.id))
+    }
+
+    /// The meeting in progress whose card `.show` would bring up, latest start first.
+    private var notesCardCandidate: Meeting? {
+        let now = clock()
+        let candidates = entries.values
+            .filter { $0.meeting.start <= now && now < $0.meeting.end }
+            .filter { OverlayReducer.reduce($0.state, .show, notes: notesPolicy(for: $0.meeting)) == .notesCard }
+            .map(\.meeting)
+        return Self.latestStarted(candidates)
+    }
+
+    private static func latestStarted(_ meetings: [Meeting]) -> Meeting? {
+        meetings.min { ($1.start, $0.title, $0.id.storageKey) < ($0.start, $1.title, $1.id.storageKey) }
     }
 
     private static let noticeTitleLimit = 30

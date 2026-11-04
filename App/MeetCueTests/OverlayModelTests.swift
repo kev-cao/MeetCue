@@ -8,6 +8,7 @@ final class OverlayModelTests {
     let source = FakeCalendarSource()
     let dismissedStorage = InMemoryDismissedAlertStorage()
     let quiet = QuietMode(storage: InMemoryQuietStorage())
+    let notes = NoteStore(repository: FlakyNoteRepository(), saveDelay: .seconds(60))
     var now = AppFixtures.at(14, 0)
     var opened: [URL] = []
     lazy var store = MeetingStore(source: source, now: { [unowned self] in now }, calendar: AppFixtures.calendar)
@@ -21,6 +22,7 @@ final class OverlayModelTests {
         let model = OverlayModel(
             store: store,
             quiet: quiet,
+            notes: notes,
             dismissed: DismissedAlerts(storage: dismissedStorage),
             clock: { [unowned self] in now },
             calendar: AppFixtures.calendar,
@@ -350,5 +352,99 @@ final class OverlayModelTests {
         #expect(model.schedule == OverlaySchedule(wake: AppFixtures.at(15, 0), holdsActivity: false))
         model.snoozeAlert()
         #expect(model.schedule == OverlaySchedule(wake: AppFixtures.at(14, 29), holdsActivity: true))
+    }
+
+    var sync: Meeting { store.meetings.first { $0.title == "Team Sync" }! }
+
+    @Test func notesCardAppearsAtStartForMeetingsWithNotes() {
+        let model = makeModel()
+        notes.setMarkdown("- [ ] Budget\n- [x] Hiring\n- [ ] Offsite", for: sync)
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.topicCount(for: sync) == 2)
+        model.moveAlertToCorner()
+        at(AppFixtures.at(14, 30), model)
+        #expect(model.pillMeetings.isEmpty)
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+        at(AppFixtures.at(15, 0), model)
+        #expect(model.notesCardMeeting == nil)
+        #expect(model.state(of: syncID) == .done)
+    }
+
+    @Test func dismissingOrJoiningAfterStartShowsTheCard() {
+        now = AppFixtures.at(14, 31)
+        let model = makeModel()
+        notes.setMarkdown("Agenda", for: sync)
+        model.dismissAlert()
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+    }
+
+    @Test func hideAndShowTheNotesCard() {
+        let model = makeModel()
+        notes.setMarkdown("Agenda", for: sync)
+        at(AppFixtures.at(14, 31), model)
+        model.dismissAlert()
+        model.hideNotesCard()
+        #expect(model.state(of: syncID) == .hidden)
+        #expect(model.canShowNotesCard)
+        model.showNotesCard()
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+        #expect(!model.canShowNotesCard)
+        model.toggleNotesCard()
+        #expect(model.notesCardMeeting == nil)
+        model.toggleNotesCard()
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+    }
+
+    @Test func showBringsBackACardThatWasNeverShownOnceNotesExist() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 31), model)
+        model.dismissAlert()
+        #expect(model.state(of: syncID) == .done)
+        #expect(!model.canShowNotesCard)
+        notes.setMarkdown("Agenda", for: sync)
+        #expect(model.canShowNotesCard)
+        model.showNotesCard()
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+    }
+
+    @Test func showPicksTheMeetingThatStartedLast() {
+        source.snapshots.append(AppFixtures.event("Standup", start: AppFixtures.at(14, 0), minutes: 60, series: "series-2"))
+        for event in source.snapshots { notes.setMarkdown("Agenda", for: MeetingMapper.meeting(from: event)) }
+        now = AppFixtures.at(14, 40)
+        let model = makeModel()
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+        model.hideNotesCard()
+        model.showNotesCard()
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+        #expect(model.entries.values.first { $0.meeting.title == "Standup" }?.state == .hidden)
+    }
+
+    @Test func alertsOffCalendarsSkipTheAlertButShowTheCard() {
+        store.filter = CalendarFilter(alertOffCalendarIDs: ["work"])
+        let model = makeModel()
+        notes.setMarkdown("Agenda", for: sync)
+        #expect(model.schedule == OverlaySchedule(wake: AppFixtures.at(14, 28), holdsActivity: false))
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.alertMeetings.isEmpty)
+        #expect(model.state(of: syncID) == .dismissed)
+        at(AppFixtures.at(14, 30), model)
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+    }
+
+    @Test func turningAlertsOffClosesAnOpenAlertQuietly() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.alertMeetings.count == 1)
+        store.filter = CalendarFilter(alertOffCalendarIDs: ["work"])
+        model.refresh()
+        #expect(model.alertMeetings.isEmpty)
+        #expect(model.notice == nil)
+        #expect(model.state(of: syncID) == .dismissed)
+    }
+
+    @Test func allDayEventsStayOutOfTheOverlays() {
+        source.snapshots = [EventSnapshot(seriesKey: "holiday", title: "Holiday", start: AppFixtures.at(0, 0), end: AppFixtures.at(0, 0, day: 5), isAllDay: true, calendarID: "work")]
+        let model = makeModel()
+        #expect(model.entries.isEmpty)
     }
 }

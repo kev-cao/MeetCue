@@ -18,6 +18,7 @@ struct OverlaySnapshotTests {
         let model = OverlayModel(
             store: store,
             quiet: QuietMode(storage: InMemoryQuietStorage()),
+            notes: NoteStore(repository: FlakyNoteRepository()),
             dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
             clock: { time },
             calendar: AppFixtures.calendar,

@@ -12,6 +12,7 @@ struct AlertSchedulerTests {
         let model = OverlayModel(
             store: store,
             quiet: QuietMode(storage: InMemoryQuietStorage()),
+            notes: NoteStore(repository: FlakyNoteRepository()),
             dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
             clock: clock,
             calendar: AppFixtures.calendar,
