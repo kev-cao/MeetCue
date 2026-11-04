@@ -1,7 +1,6 @@
 import MeetCueCore
 import SwiftUI
 
-/// The corner pills and the cancelled-meeting notice, redrawn every second.
 struct PillStack: View {
     let model: OverlayModel
 
@@ -72,11 +71,14 @@ private struct Pill: View {
                 if meeting.joinLink != nil {
                     Button("Join \(meeting.title)", systemImage: "video.fill") { model.join(meeting.id) }
                         .buttonStyle(CircleButtonStyle(prominent: true))
+                        .help("Join \(meeting.title)")
                 }
                 Button("Expand alert", systemImage: "arrow.up.left.and.arrow.down.right") { model.expandPill() }
                     .buttonStyle(CircleButtonStyle())
+                    .help("Expand alert")
                 Button("Dismiss \(meeting.title)", systemImage: "xmark") { model.dismissPill(meeting.id) }
                     .buttonStyle(CircleButtonStyle())
+                    .help("Dismiss \(meeting.title)")
             }
         }
         .padding(.leading, 12)

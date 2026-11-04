@@ -90,8 +90,10 @@ final class OverlayModel {
         apply(to: alertMeetings) { _ in .snooze(until: until) }
     }
 
+    /// The pill only counts down to the start, so meetings that have started stay in the alert.
     func moveAlertToCorner() {
-        apply(to: alertMeetings) { _ in .moveToCorner }
+        let now = clock()
+        apply(to: alertMeetings.filter { now < $0.start }) { _ in .moveToCorner }
     }
 
     func expandPill() {
@@ -165,9 +167,9 @@ final class OverlayModel {
             .sorted(by: Self.isOrderedBefore)
         if !gone.isEmpty {
             if let notice, notice.until > now {
-                noticeTitles += gone.map(\.title)
+                noticeTitles += gone.map { Self.shortened($0.title) }
             } else {
-                noticeTitles = gone.map(\.title)
+                noticeTitles = gone.map { Self.shortened($0.title) }
             }
             let verb = noticeTitles.count == 1 ? "is" : "are"
             notice = CancelNotice(
@@ -246,6 +248,13 @@ final class OverlayModel {
     /// Without a notes store, no meeting has notes, so meetings go to `.done` where the notes card would appear.
     private func notesPolicy(for meeting: Meeting) -> NotesPolicy {
         NotesPolicy(hasNotes: false)
+    }
+
+    private static let noticeTitleLimit = 30
+
+    /// Keeps the notice's fixed suffix on screen when it is shown on one line.
+    private static func shortened(_ title: String) -> String {
+        title.count > noticeTitleLimit ? title.prefix(noticeTitleLimit - 1) + "…" : title
     }
 
     private static func isPastAlert(_ state: OverlayState) -> Bool {

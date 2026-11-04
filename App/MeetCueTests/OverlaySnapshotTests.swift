@@ -49,6 +49,16 @@ struct OverlaySnapshotTests {
         try render(AlertScreenContent(model: model(at: lateAt, events: [teamSync]), now: lateAt), dark: true, named: "alert-started")
     }
 
+    @Test func rendersManySimultaneousMeetings() throws {
+        let now = AppFixtures.at(14, 28, second: 18)
+        let events = (1...5).map { index in
+            AppFixtures.event("Meeting \(index)", start: AppFixtures.at(14, 30), series: "series-\(index)", location: index.isMultiple(of: 2) ? "https://acme.zoom.us/j/\(index)" : "Room \(index)")
+        }
+        let model = model(at: now, events: events)
+        #expect(model.alertMeetings.count == 5)
+        try renderHosted(AlertScreenContent(model: model, now: now), named: "alert-many")
+    }
+
     @Test func rendersPill() throws {
         let now = AppFixtures.at(14, 28, second: 18)
         let model = model(at: now, events: [teamSync])
@@ -89,6 +99,27 @@ struct OverlaySnapshotTests {
         pills
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(.top, 24)
+    }
+
+    /// `ImageRenderer` leaves a `ScrollView`'s content blank, so this draws through AppKit instead.
+    private func renderHosted(_ view: some View, size: CGSize = CGSize(width: 1280, height: 800), named name: String) throws {
+        let screen = ZStack {
+            Wallpaper(dark: false)
+            view
+        }
+        .frame(width: size.width, height: size.height)
+        .clipped()
+        .environment(\.solidGlass, true)
+        let host = NSHostingView(rootView: screen)
+        host.frame = CGRect(origin: .zero, size: size)
+        let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        guard let directory = ProcessInfo.processInfo.environment["MEETCUE_SNAPSHOT_DIR"] else { return }
+        let data = try #require(bitmap.representation(using: .png, properties: [:]))
+        try data.write(to: URL(fileURLWithPath: directory).appendingPathComponent("\(name).png"))
     }
 
     private func render(_ view: some View, size: CGSize = CGSize(width: 1280, height: 800), dark: Bool, named name: String) throws {

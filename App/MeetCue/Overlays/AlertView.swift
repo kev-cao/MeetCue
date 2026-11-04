@@ -1,7 +1,6 @@
 import MeetCueCore
 import SwiftUI
 
-/// The full-screen alert for one display, redrawn every second.
 struct AlertScreen: View {
     let model: OverlayModel
 
@@ -40,15 +39,11 @@ struct AlertCard: View {
 
     var body: some View {
         VStack(spacing: 22) {
-            CountdownHeader(countdown: AlertText.countdown(to: first.start, now: now))
+            CountdownHeader(title: first.title, countdown: AlertText.countdown(to: first.start, now: now))
             if meetings.count == 1 {
                 MeetingSummary(model: model, meeting: first)
             } else {
-                VStack(spacing: 10) {
-                    ForEach(meetings) { meeting in
-                        StackedMeetingRow(model: model, meeting: meeting)
-                    }
-                }
+                stackedRows
             }
             actions
             footer
@@ -60,12 +55,31 @@ struct AlertCard: View {
         .accessibilityAddTraits(.isModal)
     }
 
+    private static let visibleRows = 3
+    private static let rowHeight: CGFloat = 92
+
+    @ViewBuilder private var stackedRows: some View {
+        let rows = VStack(spacing: 10) {
+            ForEach(meetings) { meeting in
+                StackedMeetingRow(model: model, meeting: meeting)
+            }
+        }
+        if meetings.count > Self.visibleRows {
+            ScrollView {
+                rows
+            }
+            .frame(maxHeight: CGFloat(Self.visibleRows) * Self.rowHeight)
+        } else {
+            rows
+        }
+    }
+
     private var actions: some View {
         HStack(spacing: 10) {
             Button("Dismiss") { model.dismissAlert() }
                 .buttonStyle(CapsuleButtonStyle())
-            // The pill only counts down to the start, and closes once the meeting has started.
-            if meetings.contains(where: { now < $0.start }) {
+            // The pill only counts down to the start, so it can't take a meeting that has started.
+            if meetings.allSatisfy({ now < $0.start }) {
                 Button("Move to corner", systemImage: "arrow.down.right.and.arrow.up.left") { model.moveAlertToCorner() }
                     .buttonStyle(CapsuleButtonStyle())
             }
@@ -94,7 +108,23 @@ struct AlertCard: View {
 }
 
 private struct CountdownHeader: View {
+    let title: String
     let countdown: Countdown
+
+    private var spokenLabel: String {
+        let time = Self.spoken(clock: countdown.clock)
+        return countdown.hasStarted ? "\(title) started \(time) ago" : "\(title) starts in \(time)"
+    }
+
+    /// "1:42" as "1 minute 42 seconds", and "1:05:03" as "1 hour 5 minutes 3 seconds".
+    private static func spoken(clock: String) -> String {
+        let parts = clock.split(separator: ":").compactMap { Int($0) }
+        let units = ["hour", "minute", "second"].suffix(parts.count)
+        return zip(parts, units)
+            .filter { $0.0 > 0 }
+            .map { "\($0.0) \($0.1)\($0.0 == 1 ? "" : "s")" }
+            .joined(separator: " ")
+    }
 
     var body: some View {
         VStack(spacing: 2) {
@@ -116,7 +146,9 @@ private struct CountdownHeader: View {
             }
             .lineLimit(1)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 

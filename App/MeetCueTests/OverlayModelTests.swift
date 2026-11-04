@@ -77,6 +77,27 @@ final class OverlayModelTests {
         #expect(model.alertMeetings.count == 1)
     }
 
+    @Test func moveToCornerLeavesStartedMeetingsInTheAlert() {
+        source.snapshots.append(AppFixtures.event("Standup", start: AppFixtures.at(14, 26), series: "series-2"))
+        now = AppFixtures.at(14, 28)
+        let model = makeModel()
+        #expect(model.alertMeetings.map(\.title) == ["Standup", "Team Sync"])
+        model.moveAlertToCorner()
+        #expect(model.pillMeetings.map(\.title) == ["Team Sync"])
+        #expect(model.alertMeetings.map(\.title) == ["Standup"])
+    }
+
+    @Test func noticeShortensLongTitles() {
+        let longTitle = String(repeating: "A", count: 50)
+        source.snapshots = [AppFixtures.event(longTitle, start: AppFixtures.at(14, 30))]
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        source.snapshots = []
+        store.refresh()
+        model.refresh()
+        #expect(model.notice?.text == String(repeating: "A", count: 29) + "… is no longer on your calendar")
+    }
+
     @Test func pillClosesAtStartWithoutNotes() {
         let model = makeModel()
         at(AppFixtures.at(14, 28), model)

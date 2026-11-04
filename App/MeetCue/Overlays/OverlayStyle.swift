@@ -9,7 +9,7 @@ extension EnvironmentValues {
 enum GlassRole {
     /// The full-screen pane behind the alert card.
     case backdrop
-    /// The alert card, the pill and, later, the notes card.
+    /// The alert card and the pill.
     case card
 }
 

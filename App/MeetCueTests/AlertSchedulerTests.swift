@@ -21,7 +21,7 @@ struct AlertSchedulerTests {
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<150 {
+        for _ in 0..<125 {
             if condition() { return true }
             try? await Task.sleep(for: .milliseconds(20))
         }
@@ -40,7 +40,7 @@ struct AlertSchedulerTests {
 
     @Test func settlesWhenTheTimerFires() async {
         let (store, model) = makeModel(clock: Date.init)
-        source.snapshots = [AppFixtures.event(start: Date().addingTimeInterval(AlertTiming.standard.leadTime + 0.3))]
+        source.snapshots = [AppFixtures.event(start: Date().addingTimeInterval(AlertTiming.standard.leadTime + 1.5))]
         store.refresh()
         let scheduler = AlertScheduler(model: model)
         scheduler.start()
