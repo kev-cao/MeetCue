@@ -6,6 +6,9 @@ options:
 packages:
   MeetCueCore:
     path: MeetCueCore
+  Markdown:
+    url: https://github.com/swiftlang/swift-markdown
+    from: 0.9.0
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -18,6 +21,7 @@ targets:
     sources: [App/MeetCue]
     dependencies:
       - package: MeetCueCore
+      - package: Markdown
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.kev-cao.MeetCue
