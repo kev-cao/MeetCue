@@ -29,14 +29,14 @@ final class EventKitSource: CalendarSource {
     func events(from start: Date, to end: Date) -> [EventSnapshot] {
         guard access == .granted else { return [] }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
-        return store.events(matching: predicate).map(Self.snapshot)
+        return store.events(matching: predicate).filter { $0.status != .canceled }.map(Self.snapshot)
     }
 
     private static func snapshot(of event: EKEvent) -> EventSnapshot {
         EventSnapshot(
             seriesKey: event.calendarItemExternalIdentifier ?? event.calendarItemIdentifier,
             occurrenceDate: event.occurrenceDate ?? event.startDate,
-            isRecurring: event.hasRecurrenceRules,
+            isRecurring: event.hasRecurrenceRules || event.isDetached,
             title: event.title ?? "",
             start: event.startDate,
             end: event.endDate,
@@ -50,9 +50,11 @@ final class EventKitSource: CalendarSource {
         )
     }
 
-    /// An event I organize without inviting myself counts as accepted; one with no attendee info is unknown.
+    /// An event without attendees is my own entry, so it counts as accepted. With attendees, an event I
+    /// organize counts as accepted, and one where no attendee is recognized as me is unknown.
     private static func myStatus(in event: EKEvent) -> RSVP {
-        guard let me = event.attendees?.first(where: \.isCurrentUser) else {
+        guard let attendees = event.attendees, !attendees.isEmpty else { return .accepted }
+        guard let me = attendees.first(where: \.isCurrentUser) else {
             return event.organizer?.isCurrentUser == true ? .accepted : .unknown
         }
         switch me.participantStatus {

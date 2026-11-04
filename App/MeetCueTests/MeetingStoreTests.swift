@@ -44,6 +44,29 @@ struct MeetingStoreTests {
         #expect(store.meetings.count == 1)
     }
 
+    @Test func changingTheFilterReloads() {
+        source.snapshots = [
+            AppFixtures.event(start: AppFixtures.at(14, 30)),
+            AppFixtures.event("Declined", start: AppFixtures.at(15, 0), series: "d", status: .declined),
+        ]
+        let store = makeStore()
+        store.refresh()
+        #expect(store.meetings.map(\.title) == ["Team Sync"])
+        store.filter = CalendarFilter(skipDeclined: false)
+        #expect(store.meetings.map(\.title) == ["Team Sync", "Declined"])
+    }
+
+    @Test func revokedAccessClearsMeetings() {
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30))]
+        let store = makeStore()
+        store.refresh()
+        #expect(store.meetings.count == 1)
+        source.access = .denied
+        store.refresh()
+        #expect(store.meetings.isEmpty)
+        #expect(store.access == .denied)
+    }
+
     @Test func calendarChangesReload() {
         let store = makeStore()
         store.refresh()

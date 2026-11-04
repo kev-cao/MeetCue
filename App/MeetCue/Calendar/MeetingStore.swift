@@ -8,7 +8,9 @@ final class MeetingStore {
     private(set) var access: CalendarAccess
     /// Today's and tomorrow's meetings from `MeetingFilter.relevant`, so the menu bar can look past midnight.
     private(set) var meetings: [Meeting] = []
-    var filter = CalendarFilter()
+    var filter = CalendarFilter() {
+        didSet { refresh() }
+    }
 
     @ObservationIgnored private let source: CalendarSource
     @ObservationIgnored private let now: () -> Date
