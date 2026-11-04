@@ -49,6 +49,48 @@ struct OverlaySnapshotTests {
         try render(AlertScreenContent(model: model(at: lateAt, events: [teamSync]), now: lateAt), dark: true, named: "alert-started")
     }
 
+    @Test func rendersPill() throws {
+        let now = AppFixtures.at(14, 28, second: 18)
+        let model = model(at: now, events: [teamSync])
+        model.moveAlertToCorner()
+        #expect(model.pillMeetings.count == 1)
+        for dark in [false, true] {
+            try render(corner(PillStackContent(model: model, now: now)), size: Self.cornerSize, dark: dark, named: dark ? "pill-dark" : "pill-light")
+        }
+    }
+
+    @Test func rendersCancelNotice() throws {
+        let review = AppFixtures.event("PITR design review", start: AppFixtures.at(14, 30), series: "series-2")
+        let now = AppFixtures.at(14, 28, second: 18)
+        let model = model(at: now, events: [teamSync, review])
+        model.moveAlertToCorner()
+        source.snapshots = [teamSync]
+        model.store.refresh()
+        model.refresh()
+        #expect(model.notice?.text == "PITR design review was cancelled")
+        try render(corner(PillStackContent(model: model, now: now)), size: Self.cornerSize, dark: false, named: "pill-cancelled")
+    }
+
+    /// The corner panel is sized with `PillStackContent.size(rows:)` rather than by measuring the view.
+    @Test func pillStackSizeMatchesItsLayout() throws {
+        let review = AppFixtures.event("PITR design review", start: AppFixtures.at(14, 30), series: "series-2")
+        let now = AppFixtures.at(14, 28, second: 18)
+        let model = model(at: now, events: [teamSync, review])
+        model.moveAlertToCorner()
+        let renderer = ImageRenderer(content: PillStackContent(model: model, now: now).environment(\.solidGlass, true))
+        let image = try #require(renderer.cgImage)
+        #expect(CGSize(width: image.width, height: image.height) == PillStackContent.size(rows: 2))
+    }
+
+    static let cornerSize = CGSize(width: 720, height: 260)
+
+    /// Places a pill stack where the panel puts it: the top-right corner, below the menu bar.
+    private func corner(_ pills: some View) -> some View {
+        pills
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(.top, 24)
+    }
+
     private func render(_ view: some View, size: CGSize = CGSize(width: 1280, height: 800), dark: Bool, named name: String) throws {
         let screen = ZStack {
             Wallpaper(dark: dark)
