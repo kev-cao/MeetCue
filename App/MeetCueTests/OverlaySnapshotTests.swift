@@ -67,7 +67,7 @@ struct OverlaySnapshotTests {
         source.snapshots = [teamSync]
         model.store.refresh()
         model.refresh()
-        #expect(model.notice?.text == "PITR design review was cancelled")
+        #expect(model.notice?.text == "PITR design review is no longer on your calendar")
         try render(corner(PillStackContent(model: model, now: now)), size: Self.cornerSize, dark: false, named: "pill-cancelled")
     }
 

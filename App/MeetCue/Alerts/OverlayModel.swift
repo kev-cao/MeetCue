@@ -9,14 +9,16 @@ struct OverlaySchedule: Equatable {
     var holdsActivity: Bool
 }
 
-/// The pill's "<title> was cancelled" line, shown until `until`.
+/// The pill's "<title> is no longer on your calendar" line, shown until `until`. A meeting disappears
+/// when it is cancelled, declined, or its calendar stops alerting.
 struct CancelNotice: Equatable {
     let text: String
     let until: Date
 }
 
 /// Each alertable meeting's overlay state, the actions the alert and pill offer, and what they show.
-/// Overlay windows render it; `AlertScheduler` calls `refresh()` at each deadline and system change.
+/// Overlay windows render it. `refresh()` must run whenever the store's meetings or filter, quiet
+/// mode, or the clock change, because `schedule` doesn't depend on them; `AlertScheduler` does so.
 @MainActor
 @Observable
 final class OverlayModel {
@@ -36,12 +38,13 @@ final class OverlayModel {
     private(set) var notice: CancelNotice?
     private(set) var schedule = OverlaySchedule(wake: nil, holdsActivity: false)
 
+    @ObservationIgnored private var noticeTitles: [String] = []
     @ObservationIgnored private var simulated: [Meeting] = []
-    @ObservationIgnored private let dismissed: DismissedAlerts
-    @ObservationIgnored private let clock: () -> Date
-    @ObservationIgnored private let calendar: Calendar
-    @ObservationIgnored private let locale: Locale
-    @ObservationIgnored private let openURL: @MainActor (URL) -> Void
+    private let dismissed: DismissedAlerts
+    private let clock: () -> Date
+    private let calendar: Calendar
+    private let locale: Locale
+    private let openURL: @MainActor (URL) -> Void
 
     init(
         store: MeetingStore,
@@ -108,7 +111,9 @@ final class OverlayModel {
         if let link = meeting.joinLink {
             openURL(link.url)
         }
-        apply(to: [meeting]) { _ in .join }
+        let others = entries[id]?.state == .alert ? alertMeetings.filter { $0.id != id } : []
+        let now = clock()
+        apply(to: [meeting] + others) { $0.id == id ? .join : .dismiss(afterStart: now >= $0.start) }
     }
 
     /// ↩ on the alert joins the first meeting with a video link, or dismisses when none has one.
@@ -154,14 +159,19 @@ final class OverlayModel {
             next[meeting.id] = reconciled(meeting, isSimulated: true)
         }
 
-        let cancelled = entries.values
-            .filter { next[$0.meeting.id] == nil && ($0.state == .alert || $0.state == .pill) }
+        let gone = entries.values
+            .filter { next[$0.meeting.id] == nil && ($0.state == .alert || $0.state == .pill) && now < $0.meeting.end }
             .map(\.meeting)
             .sorted(by: Self.isOrderedBefore)
-        if !cancelled.isEmpty {
-            let titles = cancelled.map(\.title).joined(separator: " and ")
+        if !gone.isEmpty {
+            if let notice, notice.until > now {
+                noticeTitles += gone.map(\.title)
+            } else {
+                noticeTitles = gone.map(\.title)
+            }
+            let verb = noticeTitles.count == 1 ? "is" : "are"
             notice = CancelNotice(
-                text: "\(titles) \(cancelled.count == 1 ? "was" : "were") cancelled",
+                text: "\(noticeTitles.joined(separator: " and ")) \(verb) no longer on your calendar",
                 until: now.addingTimeInterval(timing.cancelNoticeDuration)
             )
         } else if let notice, notice.until <= now {
@@ -188,7 +198,9 @@ final class OverlayModel {
 
     private func reconciled(_ meeting: Meeting, isSimulated: Bool) -> Entry {
         guard var entry = entries[meeting.id] else {
-            let state: OverlayState = !isSimulated && dismissed.contains(meeting) ? .dismissed : .waiting
+            let isRecorded = !isSimulated && dismissed.contains(meeting)
+            if !isSimulated && !isRecorded { dismissed.remove(meeting.id) }
+            let state: OverlayState = isRecorded ? .dismissed : .waiting
             return Entry(meeting: meeting, state: state, isSimulated: isSimulated)
         }
         if entry.meeting.start != meeting.start {

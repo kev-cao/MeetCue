@@ -172,10 +172,63 @@ final class OverlayModelTests {
         store.refresh()
         model.refresh()
         #expect(model.alertMeetings.isEmpty)
-        #expect(model.notice == CancelNotice(text: "Team Sync was cancelled", until: AppFixtures.at(14, 28, second: 5)))
+        #expect(model.notice == CancelNotice(text: "Team Sync is no longer on your calendar", until: AppFixtures.at(14, 28, second: 5)))
         #expect(model.schedule.wake == AppFixtures.at(14, 28, second: 5))
         at(AppFixtures.at(14, 28, second: 5), model)
         #expect(model.notice == nil)
+    }
+
+    @Test func noNoticeForAMeetingThatAlreadyEnded() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.alertMeetings.count == 1)
+        source.snapshots = []
+        store.refresh()
+        at(AppFixtures.at(15, 1), model)
+        #expect(model.notice == nil)
+    }
+
+    @Test func secondDisappearanceWithinFiveSecondsMergesTheNotice() {
+        source.snapshots.append(AppFixtures.event("Standup", start: AppFixtures.at(14, 30), series: "series-2"))
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.alertMeetings.count == 2)
+
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30))]
+        store.refresh()
+        model.refresh()
+        #expect(model.notice == CancelNotice(text: "Standup is no longer on your calendar", until: AppFixtures.at(14, 28, second: 5)))
+
+        source.snapshots = []
+        store.refresh()
+        at(AppFixtures.at(14, 28, second: 2), model)
+        #expect(model.notice == CancelNotice(text: "Standup and Team Sync are no longer on your calendar", until: AppFixtures.at(14, 28, second: 7)))
+    }
+
+    @Test func aMeetingThatDisappearsAndReturnsAlertsAgain() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        source.snapshots = []
+        store.refresh()
+        model.refresh()
+        #expect(model.notice != nil)
+        #expect(model.alertMeetings.isEmpty)
+
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30), location: "https://acme.zoom.us/j/1")]
+        store.refresh()
+        at(AppFixtures.at(14, 29), model)
+        #expect(model.alertMeetings.map(\.title) == ["Team Sync"])
+    }
+
+    @Test func joiningOneOfTwoClearsTheCard() {
+        source.snapshots.append(AppFixtures.event("Design review", start: AppFixtures.at(14, 30), series: "series-2"))
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.alertMeetings.count == 2)
+        model.join(syncID)
+        #expect(model.alertMeetings.isEmpty)
+        let other = model.entries.values.first { $0.meeting.title == "Design review" }
+        #expect(other?.state == .dismissed)
     }
 
     @Test func aCancelledMeetingThatWasNotShowingLeavesNoNotice() {
@@ -205,6 +258,19 @@ final class OverlayModelTests {
 
         source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 31))]
         now = AppFixtures.at(14, 29)
+        #expect(makeModel().alertMeetings.count == 1)
+    }
+
+    @Test func movedWhileClosedThenMovedBackStillAlerts() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        model.dismissAlert()
+
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 31))]
+        now = AppFixtures.at(14, 29)
+        _ = makeModel()
+
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30))]
         #expect(makeModel().alertMeetings.count == 1)
     }
 
