@@ -3,13 +3,19 @@ import SwiftUI
 
 /// A note rendered from Markdown, with checkboxes that tick task items in place.
 struct NoteView: View {
-    let markdown: String
-    var fontSize: CGFloat = 14
-    let toggle: (_ line: Int) -> Void
+    private let blocks: [NoteBlock]
+    private let fontSize: CGFloat
+    private let toggle: (_ line: Int, _ text: String) -> Void
+
+    init(markdown: String, fontSize: CGFloat = 14, toggle: @escaping (_ line: Int, _ text: String) -> Void) {
+        blocks = NoteDocument.blocks(from: markdown)
+        self.fontSize = fontSize
+        self.toggle = toggle
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ForEach(NoteDocument.blocks(from: markdown)) { block in
+            ForEach(blocks) { block in
                 NoteBlockView(block: block, fontSize: fontSize, toggle: toggle)
             }
         }
@@ -20,7 +26,7 @@ struct NoteView: View {
 private struct NoteBlockView: View {
     let block: NoteBlock
     let fontSize: CGFloat
-    let toggle: (Int) -> Void
+    let toggle: (Int, String) -> Void
 
     var body: some View {
         content
@@ -39,23 +45,23 @@ private struct NoteBlockView: View {
         switch block.kind {
         case .heading(let level):
             Text(block.text)
-                .font(.system(size: level == 1 ? fontSize + 3 : fontSize - 1, weight: .bold))
+                .font(.system(size: level == 1 ? fontSize + 3 : level == 2 ? fontSize + 1 : fontSize, weight: .bold))
                 .foregroundStyle(level > 2 ? .secondary : .primary)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, 2)
         case .paragraph:
             body(block.text)
-        case .task(let line, let isChecked, let carriedFrom):
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+        case .task(let line, let source, let isChecked, let carriedFrom):
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Button {
-                    toggle(line)
+                    toggle(line, source)
                 } label: {
                     Checkbox(isChecked: isChecked)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + fontSize * 0.3 }
-                .accessibilityLabel(block.plainText)
-                .accessibilityValue(isChecked ? "checked" : "unchecked")
                 VStack(alignment: .leading, spacing: 4) {
                     body(block.text)
                         .strikethrough(isChecked)
@@ -65,14 +71,21 @@ private struct NoteBlockView: View {
                     }
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(carriedFrom.map { "\(block.plainText), \(NoteDocument.carriedLabel($0))" } ?? block.plainText)
+            .accessibilityValue(isChecked ? "checked" : "unchecked")
+            .accessibilityAddTraits([.isButton, .isToggle])
+            .accessibilityAction { toggle(line, source) }
         case .inertTask(let isChecked):
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Checkbox(isChecked: isChecked)
                     .opacity(0.45)
                     .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + fontSize * 0.3 }
-                    .accessibilityHidden(true)
                 body(block.text)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(block.plainText), not tickable")
+            .accessibilityValue(isChecked ? "checked" : "unchecked")
         case .bullet(let marker):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(marker)

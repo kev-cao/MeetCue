@@ -1,20 +1,29 @@
 import MeetCueCore
+import Observation
 import SwiftUI
 
+/// How the card and its panel inform each other: the card reports its laid-out `size`, and the
+/// panel sets the tallest the notes may grow to fit the screen.
+@MainActor
+@Observable
+final class NotesCardLayout {
+    var size: CGSize = .zero
+    var maxNotesHeight = NotesCardContent.maxNotesHeight
+}
+
 /// The corner panel's content: the notes card for `model.notesCardMeeting`, at the top right.
-/// Reports its size so the panel can fit it.
 struct NotesCardStack: View {
     let model: OverlayModel
+    var layout = NotesCardLayout()
     let open: (Meeting) -> Void
-    var sizeChanged: (CGSize) -> Void = { _ in }
 
     var body: some View {
         Group {
             if let meeting = model.notesCardMeeting {
-                NotesCardContent(model: model, meeting: meeting, open: open)
+                NotesCardContent(model: model, meeting: meeting, maxNotesHeight: layout.maxNotesHeight, open: open)
                     .padding(NotesCardContent.margin)
                     .fixedSize(horizontal: false, vertical: true)
-                    .onGeometryChange(for: CGSize.self) { $0.size } action: { sizeChanged($0) }
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { layout.size = $0 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -26,11 +35,14 @@ struct NotesCardContent: View {
     static let width: CGFloat = 360
     /// Longer notes scroll.
     static let maxNotesHeight: CGFloat = 380
+    /// The card's height besides its notes, with a two-line title.
+    static let chromeHeight: CGFloat = 180
     /// Room around the card for its shadow, which the panel would otherwise clip.
     static let margin: CGFloat = 16
 
     let model: OverlayModel
     let meeting: Meeting
+    var maxNotesHeight = NotesCardContent.maxNotesHeight
     let open: (Meeting) -> Void
     @Environment(\.colorScheme) private var colorScheme
 
@@ -41,14 +53,14 @@ struct NotesCardContent: View {
                 .fill(Color.primary.opacity(0.08))
                 .frame(height: 1)
             ScrollView {
-                NoteView(markdown: model.notes.markdown(for: meeting.id)) { line in
-                    model.notes.toggleTask(line: line, for: meeting)
+                NoteView(markdown: model.notes.markdown(for: meeting.id)) { line, text in
+                    model.notes.toggleTask(line: line, text: text, for: meeting)
                 }
                 .padding(.trailing, 4)
             }
             .scrollIndicators(.automatic)
             .fixedSize(horizontal: false, vertical: true)
-            .frame(maxHeight: Self.maxNotesHeight)
+            .frame(maxHeight: maxNotesHeight)
             Text("⌥⌘N to show again")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)

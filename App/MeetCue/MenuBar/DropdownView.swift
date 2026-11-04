@@ -18,6 +18,7 @@ struct DropdownView: View {
             } else if let meeting = model.featured {
                 MeetingCard(meeting: meeting, isLive: model.isLive(meeting), detail: model.detail(for: meeting), dismiss: dismiss)
                 AddTopicField(model: model, meeting: meeting, dismiss: dismiss)
+                    .id(meeting.id)
             } else {
                 Text("No more meetings today")
                     .foregroundStyle(.secondary)
@@ -116,6 +117,7 @@ private struct AddTopicField: View {
     let meeting: Meeting
     let dismiss: @MainActor () -> Void
     @State private var topic = ""
+    @FocusState private var isFocused: Bool
 
     private var canAdd: Bool { !topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
@@ -125,6 +127,7 @@ private struct AddTopicField: View {
                 TextField("Add a topic to \(meeting.title)…", text: $topic)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
+                    .focused($isFocused)
                     .onSubmit(add)
                     .accessibilityLabel("Add a topic to \(meeting.title)")
                 Button("Add topic", systemImage: "plus", action: add)
@@ -146,6 +149,8 @@ private struct AddTopicField: View {
             }
         }
         .padding(.top, 4)
+        .onAppear { isFocused = true }
+        .onDisappear { topic = "" }
     }
 
     private func add() {

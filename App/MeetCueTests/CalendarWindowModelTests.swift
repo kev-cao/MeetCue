@@ -146,7 +146,7 @@ struct CalendarWindowModelTests {
         let model = makeModel()
         let meeting = model.meetings[0]
         model.addTopic("Budget", to: meeting)
-        model.toggleTask(line: 0, for: meeting)
+        model.toggleTask(line: 0, text: "Budget", for: meeting)
         #expect(model.markdown(for: meeting) == "- [x] Budget")
         #expect(model.hasNotes(meeting))
         model.setMarkdown("", for: meeting)

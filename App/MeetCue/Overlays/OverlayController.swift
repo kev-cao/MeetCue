@@ -9,9 +9,8 @@ final class OverlayController {
     private let model: OverlayModel
     private var alertPanels: [AlertPanel] = []
     private let pillPanel: CornerPanel<PillStack>
-    private var cardPanel: CornerPanel<NotesCardStack>!
-    /// The card's size as last laid out, margins included.
-    private var cardSize = CGSize(width: NotesCardContent.width + 2 * NotesCardContent.margin, height: 240)
+    private let cardPanel: CornerPanel<NotesCardStack>
+    private let cardLayout = NotesCardLayout()
     private var keyMonitor: Any?
     private var screenObserver: NSObjectProtocol?
     private var activationObserver: NSObjectProtocol?
@@ -39,9 +38,7 @@ final class OverlayController {
     init(model: OverlayModel, openMeeting: @escaping @MainActor (Meeting) -> Void) {
         self.model = model
         pillPanel = CornerPanel(rootView: PillStack(model: model))
-        cardPanel = CornerPanel(rootView: NotesCardStack(model: model, open: openMeeting) { [weak self] size in
-            self?.cardSizeChanged(size)
-        })
+        cardPanel = CornerPanel(rootView: NotesCardStack(model: model, layout: cardLayout, open: openMeeting))
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -57,6 +54,7 @@ final class OverlayController {
             _ = model.pillMeetings
             _ = model.notice
             _ = model.notesCardMeeting
+            _ = cardLayout.size
         } onChange: { [weak self] in
             Task { @MainActor in self?.track() }
         }
@@ -165,17 +163,21 @@ final class OverlayController {
         }
     }
 
-    private func cardSizeChanged(_ size: CGSize) {
-        guard size != cardSize, size.width > 0, size.height > 0 else { return }
-        cardSize = size
-        if cardPanel.isVisible { placeNotesCard() }
-    }
-
-    /// Below the pills when they show, with the pills' spacing between the visible shapes.
+    /// Below the pills when they show, with the pills' spacing between the visible shapes. Until the
+    /// card reports its size, a typical one is assumed.
     private func placeNotesCard() {
         let pillsHeight = pillPanel.isVisible
             ? pillPanel.frame.height - PillStackContent.margin - NotesCardContent.margin + PillStackContent.spacing
             : 0
-        cardPanel.place(size: cardSize, below: pillsHeight)
+        if let screen = NSScreen.screens.first {
+            let room = screen.visibleFrame.height - pillsHeight - 2 * NotesCardContent.margin - NotesCardContent.chromeHeight
+            let maxNotesHeight = max(120, min(NotesCardContent.maxNotesHeight, room))
+            if cardLayout.maxNotesHeight != maxNotesHeight { cardLayout.maxNotesHeight = maxNotesHeight }
+        }
+        let size = cardLayout.size
+        let fitted = size.width > 0 && size.height > 0
+            ? size
+            : CGSize(width: NotesCardContent.width + 2 * NotesCardContent.margin, height: 240)
+        cardPanel.place(size: fitted, below: pillsHeight)
     }
 }

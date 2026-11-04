@@ -60,8 +60,8 @@ final class NoteStore {
         write(markdown, key: meeting.id.storageKey, seriesKey: meeting.id.seriesKey, start: meeting.start)
     }
 
-    func toggleTask(line: Int, for meeting: Meeting) {
-        setMarkdown(MarkdownTasks.toggle(markdown(for: meeting.id), line: line), for: meeting)
+    func toggleTask(line: Int, text: String, for meeting: Meeting) {
+        setMarkdown(MarkdownTasks.toggle(markdown(for: meeting.id), line: line, expectedText: text), for: meeting)
     }
 
     func appendTopic(_ topic: String, to meeting: Meeting) {

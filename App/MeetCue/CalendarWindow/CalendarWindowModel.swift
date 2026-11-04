@@ -260,7 +260,7 @@ final class CalendarWindowModel {
 
     func setMarkdown(_ markdown: String, for meeting: Meeting) { notes.setMarkdown(markdown, for: meeting) }
 
-    func toggleTask(line: Int, for meeting: Meeting) { notes.toggleTask(line: line, for: meeting) }
+    func toggleTask(line: Int, text: String, for meeting: Meeting) { notes.toggleTask(line: line, text: text, for: meeting) }
 
     func addTopic(_ topic: String, to meeting: Meeting) { notes.appendTopic(topic, to: meeting) }
 }

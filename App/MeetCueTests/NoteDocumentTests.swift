@@ -14,9 +14,9 @@ struct NoteDocumentTests {
         """)
         #expect(blocks.map(\.kind) == [
             .heading(level: 2),
-            .task(line: 1, isChecked: false, carriedFrom: "2026-11-03"),
-            .task(line: 2, isChecked: true, carriedFrom: nil),
-            .task(line: 3, isChecked: false, carriedFrom: nil),
+            .task(line: 1, source: "Budget", isChecked: false, carriedFrom: "2026-11-03"),
+            .task(line: 2, source: "Hiring plan", isChecked: true, carriedFrom: nil),
+            .task(line: 3, source: "Offsite dates", isChecked: false, carriedFrom: nil),
             .inertTask(isChecked: false),
             .bullet(marker: "•"),
         ])
@@ -33,7 +33,7 @@ struct NoteDocumentTests {
 
     @Test func crlfNotesKeepTheirLineNumbers() {
         let blocks = NoteDocument.blocks(from: "Intro\r\n\r\n- [ ] Budget\r\n")
-        #expect(blocks.map(\.kind) == [.paragraph, .task(line: 2, isChecked: false, carriedFrom: nil)])
+        #expect(blocks.map(\.kind) == [.paragraph, .task(line: 2, source: "Budget", isChecked: false, carriedFrom: nil)])
     }
 
     @Test func inlineStylesAndLinks() throws {
@@ -45,6 +45,32 @@ struct NoteDocumentTests {
         #expect(runs.contains { $0.0 == "the wiki" && $0.2 == URL(string: "https://wiki.example.com") })
         #expect(runs.contains { $0.0 == "code" && $0.1 == .code })
         #expect(runs.contains { $0.0 == "this" && $0.1 == .emphasized })
+    }
+
+    @Test func taskSourceKeepsTheMarkdownText() {
+        let blocks = NoteDocument.blocks(from: "- [ ] **Budget** review")
+        #expect(blocks.map(\.kind) == [.task(line: 0, source: "**Budget** review", isChecked: false, carriedFrom: nil)])
+        #expect(blocks[0].plainText == "Budget review")
+    }
+
+    @Test func onlyWebAndMailLinksStayLinks() throws {
+        let markdown = "[a](javascript:alert(1)) [b](file:///etc/passwd) [c](relative/path) [d](https://x.example) [e](MAILTO:me@x.example) [f](HTTP://y.example)"
+        let text = try #require(NoteDocument.blocks(from: markdown).first?.text)
+        let links = text.runs.compactMap { run in run.link.map { (String(text[run.range].characters), $0.scheme?.lowercased()) } }
+        #expect(links.map(\.0) == ["d", "e", "f"])
+        #expect(links.map(\.1) == ["https", "mailto", "http"])
+        #expect(String(text.characters) == "a b c d e f")
+    }
+
+    @Test func htmlLikeTextIsShownAndCommentsAreHidden() {
+        let blocks = NoteDocument.blocks(from: "Ask <Alice> about budget <!-- note -->\n\n<!-- hidden -->\n\n<div>raw</div>")
+        #expect(blocks.map(\.plainText) == ["Ask <Alice> about budget", "<div>raw</div>"])
+    }
+
+    @Test func aLoneCarriageReturnMakesCheckboxesInert() {
+        let blocks = NoteDocument.blocks(from: "Intro\rmore\n\n- [ ] a\n- [ ] b")
+        #expect(blocks.map(\.kind) == [.paragraph, .inertTask(isChecked: false), .inertTask(isChecked: false)])
+        #expect(blocks.map(\.plainText) == ["Intro more", "a", "b"])
     }
 
     @Test func carriedLabelReadsTheDate() {

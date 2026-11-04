@@ -83,9 +83,16 @@ struct NoteStoreTests {
         #expect(!store.hasNotes(sync.id))
         store.setMarkdown("- [ ] Budget\n- [x] Hiring\n- [ ] Offsite\nNotes", for: sync)
         #expect(store.openTopicCount(sync.id) == 2)
-        store.toggleTask(line: 0, for: sync)
+        store.toggleTask(line: 0, text: "Budget", for: sync)
         #expect(store.markdown(for: sync.id) == "- [x] Budget\n- [x] Hiring\n- [ ] Offsite\nNotes")
         #expect(store.openTopicCount(sync.id) == 1)
+    }
+
+    @Test func toggleIgnoresAStaleLine() {
+        let store = makeStore(FlakyNoteRepository())
+        store.setMarkdown("- [ ] Hiring\n- [ ] Budget", for: sync)
+        store.toggleTask(line: 0, text: "Budget", for: sync)
+        #expect(store.markdown(for: sync.id) == "- [ ] Hiring\n- [ ] Budget")
     }
 
     @Test func writingFollowsAMovedOccurrence() {
