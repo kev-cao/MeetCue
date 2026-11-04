@@ -30,6 +30,7 @@ final class StatusItemController: NSObject {
             label.setAccessibilityElement(false)
             button.target = self
             button.action = #selector(togglePopover)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         let controller = NSHostingController(rootView: AnyView(dropdown { [weak self] in self?.popover.performClose(nil) }))
         controller.sizingOptions = .preferredContentSize
