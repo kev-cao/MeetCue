@@ -11,17 +11,22 @@ public struct TaskItem: Equatable, Sendable {
 
 public enum MarkdownTasks {
     /// GitHub-style task items (`- [ ]`, `* [x]`, `1. [ ]`, any indent), skipping fenced code blocks.
+    /// An unclosed code fence runs to the end of the note, so later task lines aren't items.
     public static func items(in markdown: String) -> [TaskItem] {
         var result: [TaskItem] = []
-        var inFence = false
+        var openFence: Fence?
         for (index, line) in markdown.components(separatedBy: "\n").enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
-                inFence.toggle()
+            if let open = openFence {
+                if let candidate = fence(in: line), candidate.closes(open) { openFence = nil }
                 continue
             }
-            guard !inFence, let parts = matchTask(line) else { continue }
+            if let opening = fence(in: line) {
+                openFence = opening
+                continue
+            }
+            guard let parts = matchTask(line) else { continue }
             let (text, carriedFrom) = splitMarker(String(parts.body))
+            guard !text.isEmpty else { continue }
             result.append(TaskItem(line: index, text: text, isChecked: parts.mark != " ", carriedFrom: carriedFrom))
         }
         return result
@@ -33,7 +38,7 @@ public enum MarkdownTasks {
         var lines = markdown.components(separatedBy: "\n")
         guard let parts = matchTask(lines[index]) else { return markdown }
         let mark = parts.mark == " " ? "x" : " "
-        lines[index] = "\(parts.lead)\(mark)\(parts.close)\(parts.body)"
+        lines[index] = "\(parts.lead)\(mark)\(parts.close)\(parts.body)\(parts.eol)"
         return lines.joined(separator: "\n")
     }
 
@@ -52,11 +57,33 @@ public enum MarkdownTasks {
         return markdown.hasSuffix("\n") ? markdown + block : markdown + "\n" + block
     }
 
-    private static func matchTask(_ line: String) -> (lead: Substring, mark: Substring, close: Substring, body: Substring)? {
-        guard let match = line.wholeMatch(of: /(?<lead>\s*(?:[-*+]|\d+[.)])\s+\[)(?<mark>[ xX])(?<close>\]\s+)(?<body>.*)/) else {
+    private struct Fence {
+        let character: Character
+        let length: Int
+        let hasOnlyWhitespaceAfterRun: Bool
+
+        func closes(_ open: Fence) -> Bool {
+            character == open.character && length >= open.length && hasOnlyWhitespaceAfterRun
+        }
+    }
+
+    private static func fence(in line: String) -> Fence? {
+        guard let match = line.wholeMatch(of: /(?<indent> {0,3})(?<run>`{3,}|~{3,})(?<rest>[^\r]*)\r?/),
+              let character = match.output.run.first else { return nil }
+        let rest = match.output.rest
+        if character == "`" && rest.contains("`") { return nil }
+        return Fence(
+            character: character,
+            length: match.output.run.count,
+            hasOnlyWhitespaceAfterRun: rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        )
+    }
+
+    private static func matchTask(_ line: String) -> (lead: Substring, mark: Substring, close: Substring, body: Substring, eol: Substring)? {
+        guard let match = line.wholeMatch(of: /(?<lead>\s*(?:[-*+]|\d+[.)])\s+\[)(?<mark>[ xX])(?<close>\]\s+)(?<body>.*?)(?<eol>\r?)/) else {
             return nil
         }
-        return (match.output.lead, match.output.mark, match.output.close, match.output.body)
+        return (match.output.lead, match.output.mark, match.output.close, match.output.body, match.output.eol)
     }
 
     private static func splitMarker(_ body: String) -> (text: String, carriedFrom: String?) {

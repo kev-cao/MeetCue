@@ -50,4 +50,50 @@ struct MarkdownTasksTests {
         #expect(MarkdownTasks.appendTopic("  two\nlines  ", to: "") == "- [ ] two lines")
         #expect(MarkdownTasks.appendTopic("   ", to: "Intro") == "Intro")
     }
+
+    @Test func crlfNotesHaveItems() {
+        let items = MarkdownTasks.items(in: "- [ ] a\r\n- [x] b\r\n")
+        #expect(items.map(\.text) == ["a", "b"])
+        #expect(items.map(\.isChecked) == [false, true])
+    }
+
+    @Test func crlfToggleRoundTrips() {
+        let original = "- [ ] a\r\n- [x] b\r\n"
+        let toggled = MarkdownTasks.toggle(original, line: 0)
+        #expect(toggled == "- [x] a\r\n- [x] b\r\n")
+        #expect(MarkdownTasks.toggle(toggled, line: 0) == original)
+    }
+
+    @Test func tildeLineInsideBacktickFenceDoesNotClose() {
+        let items = MarkdownTasks.items(in: "```\n~~~\n- [ ] a\n```\n- [ ] b")
+        #expect(items.map(\.text) == ["b"])
+    }
+
+    @Test func shorterFenceDoesNotClose() {
+        let items = MarkdownTasks.items(in: "````\n```\n- [ ] a\n````\n- [ ] b")
+        #expect(items.map(\.text) == ["b"])
+    }
+
+    @Test func inlineBackticksAreNotAFence() {
+        let items = MarkdownTasks.items(in: "text ```code``` more\n- [ ] a")
+        #expect(items.map(\.text) == ["a"])
+    }
+
+    @Test func tildeFenceWithInfoString() {
+        let items = MarkdownTasks.items(in: "~~~ notes\n- [ ] hidden\n~~~\n- [ ] shown")
+        #expect(items.map(\.text) == ["shown"])
+    }
+
+    @Test func unclosedFenceHidesTheRest() {
+        #expect(MarkdownTasks.items(in: "```\n- [ ] a\n- [ ] b").isEmpty)
+    }
+
+    @Test func emptyTaskTextIsNotAnItem() {
+        let items = MarkdownTasks.items(in: "- [ ] \n- [ ] real")
+        #expect(items.map(\.text) == ["real"])
+    }
+
+    @Test func blockQuotedTasksAreNotItems() {
+        #expect(MarkdownTasks.items(in: "> - [ ] x").isEmpty)
+    }
 }
