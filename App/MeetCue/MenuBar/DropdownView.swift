@@ -55,7 +55,7 @@ struct DropdownView: View {
             Button {
                 NSApp.terminate(nil)
             } label: {
-                Text("Quit MeetCue")
+                Text("Quit")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }

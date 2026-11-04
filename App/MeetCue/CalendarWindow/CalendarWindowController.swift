@@ -42,6 +42,10 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
+        // An empty unified toolbar moves the traffic lights 19 pt in, inside the floating
+        // sidebar's rounded corner; without one they sit at 9 pt and straddle its edge.
+        window.toolbar = NSToolbar(identifier: "CalendarWindow")
+        window.toolbarStyle = .unified
         let controller = NSHostingController(rootView: CalendarWindowView(model: model))
         controller.sizingOptions = [.minSize]
         window.contentViewController = controller

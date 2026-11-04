@@ -71,7 +71,7 @@ MeetCue is in early development (version 0.1.0). It isn't on the App Store; you 
 
 MeetCue has no Dock icon while the calendar window is closed; look for it in the menu bar. On first launch macOS asks for access to your calendars. Click **Allow**, and your next meeting appears. If you denied access, open the dropdown and click **Open Privacy Settings**, or go to System Settings › Privacy & Security › Calendars.
 
-To quit, open the dropdown and click **Quit MeetCue** (or press ⌘Q while it's open).
+To quit, open the dropdown and click **Quit** (or press ⌘Q while it's open).
 
 **Start at login:** add `MeetCue.app` in System Settings › General › Login Items.
 
