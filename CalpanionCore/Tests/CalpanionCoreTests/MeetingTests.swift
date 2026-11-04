@@ -29,4 +29,16 @@ struct MeetingTests {
         #expect(videoOnly.placeLine == "Google Meet")
         #expect(neither.placeLine == nil)
     }
+
+    @Test func fractionalSecondsNormalize() {
+        let a = OccurrenceID.make(externalID: "abc", occurrenceDate: Fixtures.at(14, 30), isRecurring: true)
+        let b = OccurrenceID.make(externalID: "abc", occurrenceDate: Fixtures.at(14, 30).addingTimeInterval(0.4), isRecurring: true)
+        #expect(a == b)
+        #expect(a.storageKey == b.storageKey)
+    }
+
+    @Test func isRecurringFollowsID() {
+        #expect(Fixtures.meeting(start: Fixtures.at(14, 30), recurring: true).isRecurring == true)
+        #expect(Fixtures.meeting(start: Fixtures.at(14, 30), recurring: false).isRecurring == false)
+    }
 }

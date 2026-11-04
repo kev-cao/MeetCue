@@ -1,7 +1,11 @@
 import Foundation
 
 public enum RSVP: Sendable, Equatable {
-    case accepted, tentative, declined, pending, unknown
+    case accepted, tentative, declined
+    /// Invited and hasn't replied.
+    case pending
+    /// No reply information, such as an event without attendees.
+    case unknown
 }
 
 public enum VideoService: Sendable, Equatable {
@@ -31,6 +35,8 @@ public struct JoinLink: Sendable, Equatable {
 /// `seriesKey` is the calendar server's identifier for the event. A recurring
 /// meeting adds the occurrence's original date so each instance is distinct.
 /// A one-off meeting has no date, so moving it keeps the same ID.
+/// The date is truncated to whole seconds, so fetches that differ by a
+/// fraction of a second produce equal IDs.
 public struct OccurrenceID: Hashable, Sendable {
     public let seriesKey: String
     public let originalDate: Date?
@@ -41,7 +47,8 @@ public struct OccurrenceID: Hashable, Sendable {
     }
 
     public static func make(externalID: String, occurrenceDate: Date, isRecurring: Bool) -> OccurrenceID {
-        OccurrenceID(seriesKey: externalID, originalDate: isRecurring ? occurrenceDate : nil)
+        let wholeSeconds = Date(timeIntervalSince1970: occurrenceDate.timeIntervalSince1970.rounded(.down))
+        return OccurrenceID(seriesKey: externalID, originalDate: isRecurring ? wholeSeconds : nil)
     }
 
     /// A stable string form for use as a storage key.
