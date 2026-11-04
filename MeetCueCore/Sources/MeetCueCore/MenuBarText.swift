@@ -104,8 +104,31 @@ public enum MenuBarText {
         max(1, Int((interval / 60).rounded(.up)))
     }
 
+    /// The dropdown's time line: "2:30 – 3:00 PM", plus "in 24 min" within the hour or "12 min left" during the meeting.
+    public static func detail(for meeting: Meeting, now: Date, calendar: Calendar, uses24Hour: Bool) -> String {
+        let range = timeRange(meeting.start, meeting.end, calendar: calendar, uses24Hour: uses24Hour)
+        if meeting.start <= now && now < meeting.end {
+            return "\(range) · \(minutesRoundedUp(meeting.end.timeIntervalSince(now))) min left"
+        }
+        let untilStart = meeting.start.timeIntervalSince(now)
+        if untilStart > 0 && untilStart <= hour {
+            return "\(range) · in \(minutesRoundedUp(untilStart)) min"
+        }
+        return range
+    }
+
+    /// "2:30 – 3:00 PM", "11:30 AM – 12:30 PM", or "14:30 – 15:00".
+    static func timeRange(_ start: Date, _ end: Date, calendar: Calendar, uses24Hour: Bool) -> String {
+        let from = clockTime(start, calendar: calendar, uses24Hour: uses24Hour)
+        let to = clockTime(end, calendar: calendar, uses24Hour: uses24Hour)
+        if !uses24Hour && from.suffix(2) == to.suffix(2) {
+            return "\(from.dropLast(3)) – \(to)"
+        }
+        return "\(from) – \(to)"
+    }
+
     /// "2:30 PM" or "14:30". The 12-hour form uses English AM/PM regardless of locale.
-    static func clockTime(_ date: Date, calendar: Calendar, uses24Hour: Bool) -> String {
+    public static func clockTime(_ date: Date, calendar: Calendar, uses24Hour: Bool) -> String {
         let parts = calendar.dateComponents([.hour, .minute], from: date)
         let hour = parts.hour ?? 0
         let minute = parts.minute ?? 0

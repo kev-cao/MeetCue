@@ -126,4 +126,19 @@ struct MenuBarTextTests {
         let featured = MenuBarText.featured(in: [zeta, alpha], now: Fixtures.at(14, 6), calendar: Fixtures.calendar)
         #expect(featured?.title == "Alpha")
     }
+
+    @Test func detailShowsRangeAndCountdown() {
+        let detail = { (now: Date) in
+            MenuBarText.detail(for: sync, now: now, calendar: Fixtures.calendar, uses24Hour: false)
+        }
+        #expect(detail(Fixtures.at(13, 6)) == "2:30 – 3:00 PM")
+        #expect(detail(Fixtures.at(14, 6)) == "2:30 – 3:00 PM · in 24 min")
+        #expect(detail(Fixtures.at(14, 48)) == "2:30 – 3:00 PM · 12 min left")
+    }
+
+    @Test func detailRangeAcrossNoonAnd24Hour() {
+        let lunch = Fixtures.meeting("Lunch", start: Fixtures.at(11, 30), minutes: 60, series: "l")
+        #expect(MenuBarText.detail(for: lunch, now: Fixtures.at(9, 0), calendar: Fixtures.calendar, uses24Hour: false) == "11:30 AM – 12:30 PM")
+        #expect(MenuBarText.detail(for: sync, now: Fixtures.at(9, 0), calendar: Fixtures.calendar, uses24Hour: true) == "14:30 – 15:00")
+    }
 }
