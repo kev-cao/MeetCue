@@ -61,6 +61,8 @@ final class FakeCalendarSource: CalendarSource {
     }
 
     func events(from start: Date, to end: Date) -> [EventSnapshot] {
+        // EventKit shortens a range longer than four years to its first four years.
+        let end = min(end, Calendar(identifier: .gregorian).date(byAdding: .year, value: 4, to: start)!)
         requestedRange = (start, end)
         queries += 1
         return snapshots.filter { $0.start < end && $0.end > start }

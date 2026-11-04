@@ -7,6 +7,7 @@ import Testing
 struct NoteCarrierTests {
     let source = FakeCalendarSource()
     let notes = NoteStore(repository: FlakyNoteRepository(), saveDelay: .seconds(60))
+    let settings = AppSettings(storage: InMemorySettingsStorage())
 
     func weekly(day: Int, month: Int = 11, status: RSVP = .accepted) -> EventSnapshot {
         let start = AppFixtures.calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: 14, minute: 30))!
@@ -16,7 +17,7 @@ struct NoteCarrierTests {
     func meeting(_ event: EventSnapshot) -> Meeting { MeetingMapper.meeting(from: event) }
 
     func makeCarrier(store: MeetingStore? = nil) -> NoteCarrier {
-        NoteCarrier(notes: notes, store: store ?? MeetingStore(source: source, calendar: AppFixtures.calendar), calendar: AppFixtures.calendar)
+        NoteCarrier(notes: notes, store: store ?? MeetingStore(source: source, calendar: AppFixtures.calendar), settings: settings, calendar: AppFixtures.calendar)
     }
 
     @Test func carriesUncheckedTopicsWhenTheOccurrenceEnds() throws {
@@ -37,6 +38,17 @@ struct NoteCarrierTests {
         notes.setMarkdown("", for: meeting(weekly(day: 11)))
         makeCarrier().run(now: AppFixtures.at(15, 0))
         #expect(notes.markdown(for: meeting(weekly(day: 11)).id) == "")
+    }
+
+    @Test func carriesNothingWhileCarryOverIsOff() {
+        source.snapshots = [weekly(day: 4), weekly(day: 11)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
+        settings.carryOver = false
+        makeCarrier().run(now: AppFixtures.at(15, 0))
+        #expect(!notes.hasNotes(meeting(weekly(day: 11)).id))
+        settings.carryOver = true
+        makeCarrier().run(now: AppFixtures.at(15, 0))
+        #expect(notes.hasNotes(meeting(weekly(day: 11)).id))
     }
 
     @Test func oneOffMeetingsNeverCarry() {
@@ -139,7 +151,7 @@ struct NoteCarrierTests {
         let unavailable = NoteStore(repository: FlakyNoteRepository(loadFailures: 100), saveDelay: .seconds(60))
         source.snapshots = [weekly(day: 4), weekly(day: 11)]
         unavailable.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
-        let carrier = NoteCarrier(notes: unavailable, store: MeetingStore(source: source, calendar: AppFixtures.calendar), calendar: AppFixtures.calendar)
+        let carrier = NoteCarrier(notes: unavailable, store: MeetingStore(source: source, calendar: AppFixtures.calendar), settings: settings, calendar: AppFixtures.calendar)
         let before = source.queries
         carrier.run(now: AppFixtures.at(15, 0))
         #expect(!unavailable.hasNotes(meeting(weekly(day: 11)).id))

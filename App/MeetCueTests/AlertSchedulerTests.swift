@@ -65,7 +65,7 @@ struct AlertSchedulerTests {
         source.snapshots = [weekly(day: 4), weekly(day: 11)]
         let (store, model) = makeModel(notes: notes, clock: clock)
         store.refresh()
-        let carrier = NoteCarrier(notes: notes, store: store, calendar: AppFixtures.calendar)
+        let carrier = NoteCarrier(notes: notes, store: store, settings: AppSettings(storage: InMemorySettingsStorage()), calendar: AppFixtures.calendar)
         let scheduler = AlertScheduler(model: model)
         scheduler.beforeRefresh = { carrier.run(now: clock()) }
         scheduler.start()

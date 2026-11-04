@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let visibility = CalendarVisibility(store: store, settings: settings)
         let calendarWindow = CalendarWindowController(model: CalendarWindowModel(store: store, notes: notes, visibility: visibility))
         self.calendarWindow = calendarWindow
-        let carrier = NoteCarrier(notes: notes, store: store)
+        let carrier = NoteCarrier(notes: notes, store: store, settings: settings)
         let scheduler = AlertScheduler(model: overlays)
         scheduler.beforeRefresh = { carrier.run(now: Date()) }
         alertScheduler = scheduler

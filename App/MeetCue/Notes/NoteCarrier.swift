@@ -2,9 +2,10 @@ import Foundation
 import MeetCueCore
 
 /// Moves unchecked topics from each ended occurrence of a recurring meeting to the next one
-/// (spec 7.2). The alert scheduler runs it before every refresh of the overlays, which covers
-/// launch, occurrences that ended while the app was closed, every meeting's end, and calendar
-/// changes.
+/// (spec 7.2), unless carry-over is off in Settings. The alert scheduler runs it before every
+/// refresh of the overlays, which covers launch, occurrences that ended while the app was closed,
+/// every meeting's end, and calendar changes. Notes that end while carry-over is off carry once
+/// it's back on.
 ///
 /// Topics carried into an occurrence that is deleted later move on once that occurrence's start
 /// passes, because its note becomes a source like any other. An occurrence that can't be found
@@ -17,15 +18,17 @@ final class NoteCarrier {
 
     private let notes: NoteStore
     private let store: MeetingStore
+    private let settings: AppSettings
     private let calendar: Calendar
     /// Occurrences already handled since the calendar last changed. One whose next occurrence
     /// wasn't found is tried again after the next calendar change or launch.
     private var attempted: Set<String> = []
     private var seenRevision: Int
 
-    init(notes: NoteStore, store: MeetingStore, calendar: Calendar = .autoupdatingCurrent) {
+    init(notes: NoteStore, store: MeetingStore, settings: AppSettings, calendar: Calendar = .autoupdatingCurrent) {
         self.notes = notes
         self.store = store
+        self.settings = settings
         self.calendar = calendar
         seenRevision = store.revision
     }
@@ -33,7 +36,7 @@ final class NoteCarrier {
     /// Carries every pending note whose occurrence has ended by `now`. A target that has itself
     /// ended gets its turn in the same run, so topics reach the next occurrence still to come.
     func run(now: Date) {
-        guard store.access == .granted, notes.isStorageAvailable else { return }
+        guard settings.carryOver, store.access == .granted, notes.isStorageAvailable else { return }
         if store.revision != seenRevision {
             seenRevision = store.revision
             attempted = []
