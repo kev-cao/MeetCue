@@ -4,19 +4,27 @@ A macOS menu bar app that keeps your next meeting in view, so you don't lose tra
 
 MeetCue is in early development (version 0.1.0). It isn't on the App Store; you build it yourself from source, as described below.
 
+![The full-screen alert two minutes before a meeting, with two topics to bring up](.github/assets/alert.png)
+
 ## What it does today
 
 - **Your next meeting in the menu bar.** More than an hour out it shows the start time (`2:30 PM · Team Sync`). Within the hour it counts down (`in 24m`), and during the meeting it shows the time left (`12m left`, or `1h 20m left` for long ones). Titles longer than 10 characters scroll as the meeting approaches.
 - **A dropdown with the details.** The meeting's time, location and video service together (`Room 4B · Google Meet`), and a **Join meeting** button for Zoom, Google Meet and Microsoft Teams links. Links found in the event's URL, location or notes all work.
-- **Quiet mode.** Turn it on for an hour, until the end of the day, or until you turn it off. The menu bar shows a moon while it's on.
+- **A full-screen alert before each meeting.** Two minutes before the start it covers every display with a live countdown, Join, Snooze and Dismiss. Move it to the corner and it shrinks to a countdown pill.
+- **Notes on any meeting.** Open MeetCue (⌥⌘O) for a day, week or month calendar, pick a meeting, and write Markdown notes. Task items (`- [ ] Budget for Q1`) are topics to bring up; add one quickly from the dropdown's **Add a topic** field. Topics you didn't tick off move to the next occurrence of a recurring meeting, tagged "Carried over".
+- **A notes card when the meeting starts.** It shows the meeting's notes in the corner, with checkboxes you can tick during the call. Hide it with ×; ⌥⌘N or **Show notes card** brings it back.
+- **Quiet mode.** Turn it on for an hour, until the end of the day, or until you turn it off. The menu bar shows a moon while it's on, and the full-screen alert stays away; the notes card still appears.
 - **Follows your Mac.** It reads every calendar you've added to macOS Calendar (iCloud, Google, Exchange), skips meetings you've declined, and follows the macOS 24-hour time setting.
+
+<p>
+  <img src=".github/assets/notes-card.png" alt="The notes card in the corner during a meeting, with a carried-over topic and a ticked one" width="49%">
+  <img src=".github/assets/calendar.png" alt="The calendar window's week view with a meeting's notes in the inspector" width="49%">
+</p>
 
 ## Coming next
 
-- A full-screen alert a few minutes before each meeting, which you can shrink to a countdown in the corner.
-- Markdown notes on any meeting, with topics you haven't covered carried over to the next occurrence of a recurring meeting.
-- A notes card that appears in the corner when a meeting starts.
-- A calendar window, a Settings window, and an optional Google Calendar connection for richer meeting details.
+- A Settings window: lead time, snooze length, notes card options, which calendars alert, and exporting notes as Markdown files.
+- An optional Google Calendar connection for richer meeting details.
 
 ## Requirements
 
@@ -61,7 +69,7 @@ MeetCue is in early development (version 0.1.0). It isn't on the App Store; you 
    open /Applications/MeetCue.app
    ```
 
-MeetCue has no Dock icon; look for it in the menu bar. On first launch macOS asks for access to your calendars. Click **Allow**, and your next meeting appears. If you denied access, open the dropdown and click **Open Privacy Settings**, or go to System Settings › Privacy & Security › Calendars.
+MeetCue has no Dock icon while the calendar window is closed; look for it in the menu bar. On first launch macOS asks for access to your calendars. Click **Allow**, and your next meeting appears. If you denied access, open the dropdown and click **Open Privacy Settings**, or go to System Settings › Privacy & Security › Calendars.
 
 To quit, open the dropdown and click **Quit MeetCue** (or press ⌘Q while it's open).
 
@@ -101,11 +109,18 @@ xcodebuild -project MeetCue.xcodeproj -scheme MeetCue -destination 'platform=mac
 
 The tests launch the app as their host but skip its setup, so they never ask for calendar access.
 
+The README screenshots are rendered by a test suite that runs only when you give it a folder:
+
+```bash
+TEST_RUNNER_MEETCUE_README_DIR="$PWD/.github/assets" xcodebuild -project MeetCue.xcodeproj -scheme MeetCue -destination 'platform=macOS' -derivedDataPath build/DerivedData test -only-testing:MeetCueTests/ReadmeImageTests
+```
+
 ## Project layout
 
 ```
 project.yml                XcodeGen spec for the app and its tests
-App/MeetCue/               the app: EventKit loading, menu bar item, dropdown, quiet mode
+App/MeetCue/               the app: EventKit loading, menu bar item and dropdown, alerts and
+                           the notes card, notes storage, the calendar window
 App/MeetCueTests/          app tests
 MeetCueCore/               Swift package with the decision logic and its tests:
                            meetings, video links, filtering, menu bar text,
@@ -114,4 +129,4 @@ MeetCueCore/               Swift package with the decision logic and its tests:
 
 ## Privacy
 
-MeetCue reads your calendars on your Mac through Apple's EventKit and never changes them. Nothing is sent anywhere.
+MeetCue reads your calendars on your Mac through Apple's EventKit and never changes them. Notes stay on your Mac, in `~/Library/Application Support/MeetCue`. Nothing is sent anywhere.
