@@ -5,11 +5,12 @@ import SwiftUI
 import Testing
 @testable import MeetCue
 
-/// Renders the alert and the pill with solid glass, since `ImageRenderer` can't draw Liquid Glass.
+/// Renders the alert, the pill and the notes card with solid glass, since `ImageRenderer` can't draw Liquid Glass.
 /// Set `TEST_RUNNER_MEETCUE_SNAPSHOT_DIR` when running `xcodebuild test` to also write them as PNGs.
 @MainActor
 struct OverlaySnapshotTests {
     let source = FakeCalendarSource()
+    let notes = NoteStore(repository: FlakyNoteRepository())
 
     func model(at time: Date, events: [EventSnapshot]) -> OverlayModel {
         source.snapshots = events
@@ -18,7 +19,7 @@ struct OverlaySnapshotTests {
         let model = OverlayModel(
             store: store,
             quiet: QuietMode(storage: InMemoryQuietStorage()),
-            notes: NoteStore(repository: FlakyNoteRepository()),
+            notes: notes,
             dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
             clock: { time },
             calendar: AppFixtures.calendar,
@@ -57,7 +58,7 @@ struct OverlaySnapshotTests {
         }
         let model = model(at: now, events: events)
         #expect(model.alertMeetings.count == 5)
-        try renderHosted(AlertScreenContent(model: model, now: now), named: "alert-many")
+        try renderHosted(ZStack { Wallpaper(dark: false); AlertScreenContent(model: model, now: now) }, named: "alert-many")
     }
 
     @Test func rendersPill() throws {
@@ -93,6 +94,57 @@ struct OverlaySnapshotTests {
         #expect(CGSize(width: image.width, height: image.height) == PillStackContent.size(rows: 2))
     }
 
+    @Test func rendersAlertWithTopics() throws {
+        let now = AppFixtures.at(14, 28, second: 18)
+        notes.setMarkdown("- [ ] Budget\n- [ ] Hiring plan\n- [x] Offsite", for: MeetingMapper.meeting(from: teamSync))
+        let model = model(at: now, events: [teamSync])
+        #expect(model.topicCount(for: model.alertMeetings[0]) == 2)
+        try render(AlertScreenContent(model: model, now: now), dark: false, named: "alert-topics")
+    }
+
+    static let sampleNote = """
+    ## Topics
+    - [ ] Move staging backups to every 4 hours? <!-- carried:2026-10-28 -->
+    - [ ] Share restore throughput from last week's run
+    - [x] Who owns the on-call runbook update
+
+    Bring numbers from the [restore benchmark doc](https://example.com/bench). Compare against the **v24.3** baseline.
+    """
+
+    @Test func rendersNotesCard() throws {
+        let now = AppFixtures.at(14, 40)
+        notes.setMarkdown(Self.sampleNote, for: MeetingMapper.meeting(from: teamSync))
+        let model = model(at: now, events: [teamSync])
+        #expect(model.notesCardMeeting?.title == "Team Sync")
+        for dark in [false, true] {
+            try renderHosted(
+                ZStack { Wallpaper(dark: dark); NotesCardStack(model: model, open: { _ in }).padding(.top, 24) },
+                size: Self.cardSize,
+                dark: dark,
+                named: dark ? "notes-card-dark" : "notes-card-light"
+            )
+        }
+    }
+
+    /// The panel fits the card: short notes make a short card, and long ones scroll inside a capped height.
+    @Test func notesCardHugsShortNotesAndCapsLongOnes() throws {
+        let now = AppFixtures.at(14, 40)
+        let meeting = MeetingMapper.meeting(from: teamSync)
+        notes.setMarkdown("- [ ] Budget", for: meeting)
+        let model = model(at: now, events: [teamSync])
+        let card = { NotesCardContent(model: model, meeting: meeting, open: { _ in }).fixedSize(horizontal: false, vertical: true).environment(\.solidGlass, true) }
+        let short = NSHostingView(rootView: card()).fittingSize
+        notes.setMarkdown((1...40).map { "- [ ] Topic \($0)" }.joined(separator: "\n"), for: meeting)
+        let long = NSHostingView(rootView: card()).fittingSize
+        notes.setMarkdown((1...80).map { "- [ ] Topic \($0)" }.joined(separator: "\n"), for: meeting)
+        let longer = NSHostingView(rootView: card()).fittingSize
+        #expect(short.width == NotesCardContent.width)
+        #expect(short.height < 200)
+        #expect(long.height > short.height + 200)
+        #expect(longer.height == long.height)
+    }
+
+    static let cardSize = CGSize(width: 720, height: 520)
     static let cornerSize = CGSize(width: 720, height: 260)
 
     /// Places a pill stack where the panel puts it: the top-right corner, below the menu bar.
@@ -100,27 +152,6 @@ struct OverlaySnapshotTests {
         pills
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(.top, 24)
-    }
-
-    /// `ImageRenderer` leaves a `ScrollView`'s content blank, so this draws through AppKit instead.
-    private func renderHosted(_ view: some View, size: CGSize = CGSize(width: 1280, height: 800), named name: String) throws {
-        let screen = ZStack {
-            Wallpaper(dark: false)
-            view
-        }
-        .frame(width: size.width, height: size.height)
-        .clipped()
-        .environment(\.solidGlass, true)
-        let host = NSHostingView(rootView: screen)
-        host.frame = CGRect(origin: .zero, size: size)
-        let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
-        window.contentView = host
-        host.layoutSubtreeIfNeeded()
-        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-        host.cacheDisplay(in: host.bounds, to: bitmap)
-        guard let directory = ProcessInfo.processInfo.environment["MEETCUE_SNAPSHOT_DIR"] else { return }
-        let data = try #require(bitmap.representation(using: .png, properties: [:]))
-        try data.write(to: URL(fileURLWithPath: directory).appendingPathComponent("\(name).png"))
     }
 
     private func render(_ view: some View, size: CGSize = CGSize(width: 1280, height: 800), dark: Bool, named name: String) throws {
@@ -139,37 +170,5 @@ struct OverlaySnapshotTests {
         guard let directory = ProcessInfo.processInfo.environment["MEETCUE_SNAPSHOT_DIR"] else { return }
         let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
         try data.write(to: URL(fileURLWithPath: directory).appendingPathComponent("\(name).png"))
-    }
-}
-
-/// Stands in for the desktop and windows behind an overlay.
-private struct Wallpaper: View {
-    let dark: Bool
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: dark
-                    ? [Color(red: 0.10, green: 0.13, blue: 0.28), Color(red: 0.30, green: 0.14, blue: 0.32)]
-                    : [Color(red: 0.62, green: 0.76, blue: 1.0), Color(red: 0.99, green: 0.80, blue: 0.70)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            RoundedRectangle(cornerRadius: 20)
-                .fill(dark ? Color(white: 0.15) : .white)
-                .overlay(alignment: .topLeading) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ForEach([0.4, 0.62, 0.55, 0.7, 0.3, 0.66, 0.48], id: \.self) { fraction in
-                            Capsule()
-                                .fill(Color.primary.opacity(0.1))
-                                .frame(height: 9)
-                                .scaleEffect(x: fraction, anchor: .leading)
-                        }
-                    }
-                    .padding(40)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .padding(EdgeInsets(top: 100, leading: 120, bottom: 60, trailing: 120))
-        }
     }
 }

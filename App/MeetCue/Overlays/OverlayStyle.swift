@@ -79,15 +79,16 @@ struct CapsuleButtonStyle: ButtonStyle {
     }
 }
 
-/// The pill's round icon buttons.
+/// The pill's and the notes card's round icon buttons.
 struct CircleButtonStyle: ButtonStyle {
     var prominent = false
+    var diameter: CGFloat = 32
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .labelStyle(.iconOnly)
-            .font(.system(size: 13, weight: .semibold))
-            .frame(width: 32, height: 32)
+            .font(.system(size: diameter * 0.4, weight: .semibold))
+            .frame(width: diameter, height: diameter)
             .foregroundStyle(prominent ? Color.white : Color.primary)
             .background(Circle().fill(prominent ? Color.accentColor : Color.primary.opacity(0.08)))
             .contentShape(Circle())
