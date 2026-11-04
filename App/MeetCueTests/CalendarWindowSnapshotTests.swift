@@ -20,7 +20,7 @@ struct CalendarWindowSnapshotTests {
         let model = CalendarWindowModel(
             store: store,
             notes: notes,
-            visibility: CalendarVisibility(store: store, storage: InMemoryHiddenCalendarStorage()),
+            visibility: CalendarVisibility(store: store, settings: AppSettings(storage: InMemorySettingsStorage()), storage: InMemoryHiddenCalendarStorage()),
             clock: { SampleWeek.now },
             calendar: AppFixtures.calendar,
             locale: Locale(identifier: "en_US")

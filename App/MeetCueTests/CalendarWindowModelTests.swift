@@ -31,7 +31,7 @@ struct CalendarWindowModelTests {
         let model = CalendarWindowModel(
             store: store,
             notes: notes,
-            visibility: CalendarVisibility(store: store, storage: hidden),
+            visibility: CalendarVisibility(store: store, settings: AppSettings(storage: InMemorySettingsStorage()), storage: hidden),
             clock: now,
             calendar: AppFixtures.calendar,
             locale: Locale(identifier: "en_US"),

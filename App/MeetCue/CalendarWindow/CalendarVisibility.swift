@@ -1,4 +1,6 @@
 import Foundation
+import MeetCueCore
+import Observation
 
 /// Where the calendars hidden in the calendar window's sidebar are kept between launches.
 protocol HiddenCalendarStorage: AnyObject {
@@ -18,20 +20,27 @@ final class UserDefaultsHiddenCalendarStorage: HiddenCalendarStorage {
     }
 }
 
-/// The sidebar's visibility checkboxes. Hidden calendars leave every surface, not only the
-/// calendar window, because they go into the store's filter.
+/// The calendars' Show and Alert switches, in the calendar window's sidebar and in Settings, and
+/// the "Skip events I've declined" setting. They make up the store's filter, so a hidden calendar
+/// leaves every surface, not only the calendar window, and a calendar with alerts off gets no
+/// full-screen alerts. Changes made to the settings directly reach the filter too.
 @MainActor
 final class CalendarVisibility {
     private let store: MeetingStore
+    private let settings: AppSettings
     private let storage: HiddenCalendarStorage
 
-    init(store: MeetingStore, storage: HiddenCalendarStorage = UserDefaultsHiddenCalendarStorage()) {
+    init(store: MeetingStore, settings: AppSettings, storage: HiddenCalendarStorage = UserDefaultsHiddenCalendarStorage()) {
         self.store = store
+        self.settings = settings
         self.storage = storage
-        let hidden = storage.hiddenCalendarIDs
-        if store.filter.hiddenCalendarIDs != hidden {
-            store.filter.hiddenCalendarIDs = hidden
+        var filter = store.filter
+        filter.hiddenCalendarIDs = storage.hiddenCalendarIDs
+        apply(to: &filter)
+        if store.filter != filter {
+            store.filter = filter
         }
+        trackSettings()
     }
 
     func isVisible(_ calendarID: String) -> Bool {
@@ -48,5 +57,43 @@ final class CalendarVisibility {
         guard hidden != store.filter.hiddenCalendarIDs else { return }
         storage.hiddenCalendarIDs = hidden
         store.filter.hiddenCalendarIDs = hidden
+    }
+
+    func alertsOn(_ calendarID: String) -> Bool {
+        !settings.alertOffCalendarIDs.contains(calendarID)
+    }
+
+    func setAlertsOn(_ on: Bool, calendarID: String) {
+        if on {
+            settings.alertOffCalendarIDs.remove(calendarID)
+        } else {
+            settings.alertOffCalendarIDs.insert(calendarID)
+        }
+        applySettings()
+    }
+
+    private func apply(to filter: inout CalendarFilter) {
+        filter.alertOffCalendarIDs = settings.alertOffCalendarIDs
+        filter.skipDeclined = settings.skipDeclined
+    }
+
+    private func applySettings() {
+        var filter = store.filter
+        apply(to: &filter)
+        if store.filter != filter {
+            store.filter = filter
+        }
+    }
+
+    private func trackSettings() {
+        withObservationTracking {
+            _ = settings.alertOffCalendarIDs
+            _ = settings.skipDeclined
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.applySettings()
+                self?.trackSettings()
+            }
+        }
     }
 }

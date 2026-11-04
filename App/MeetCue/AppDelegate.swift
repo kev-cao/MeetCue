@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.notes = notes
         let model = MenuBarModel(store: store, quiet: quiet, notes: notes, settings: settings)
         let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts(), settings: settings)
-        let visibility = CalendarVisibility(store: store)
+        let visibility = CalendarVisibility(store: store, settings: settings)
         let calendarWindow = CalendarWindowController(model: CalendarWindowModel(store: store, notes: notes, visibility: visibility))
         self.calendarWindow = calendarWindow
         let carrier = NoteCarrier(notes: notes, store: store)
