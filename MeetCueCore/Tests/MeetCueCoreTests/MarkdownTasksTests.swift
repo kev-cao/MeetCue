@@ -98,6 +98,17 @@ struct MarkdownTasksTests {
         #expect(items.map(\.text) == ["real"])
     }
 
+    @Test func unicodeSpacesAroundTheCheckboxAreNotItems() {
+        #expect(MarkdownTasks.items(in: "-\u{00A0}[ ] a").isEmpty)
+        #expect(MarkdownTasks.items(in: "- [ ]\u{00A0}a").isEmpty)
+        #expect(MarkdownTasks.items(in: "- [ ]\ta").map(\.text) == ["a"])
+    }
+
+    @Test func checkboxAtEndOfLineIsNotAnItem() {
+        #expect(MarkdownTasks.items(in: "- [ ]").isEmpty)
+        #expect(MarkdownTasks.items(in: "- [ ]\r\n- [ ] b").map(\.text) == ["b"])
+    }
+
     @Test func blockQuotedTasksAreNotItems() {
         #expect(MarkdownTasks.items(in: "> - [ ] x").isEmpty)
     }

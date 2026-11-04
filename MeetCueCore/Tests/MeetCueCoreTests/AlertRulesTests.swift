@@ -69,7 +69,8 @@ struct AlertRulesTests {
         #expect(AlertRules.nextWake([(sync, .waiting)], now: Fixtures.at(14, 0), config: config) == Fixtures.at(14, 28))
         #expect(AlertRules.nextWake([(sync, .waiting)], now: Fixtures.at(14, 28), config: config) == Fixtures.at(14, 35))
         #expect(AlertRules.nextWake([(sync, .alert)], now: Fixtures.at(14, 28), config: config) == Fixtures.at(15, 0))
-        #expect(AlertRules.nextWake([(sync, .done)], now: Fixtures.at(14, 28), config: config) == nil)
+        #expect(AlertRules.nextWake([(sync, .done)], now: Fixtures.at(14, 28), config: config) == Fixtures.at(15, 0))
+        #expect(AlertRules.nextWake([(sync, .done)], now: Fixtures.at(15, 0), config: config) == nil)
     }
 
     @Test func nextWakeIgnoresQuietExpiry() {

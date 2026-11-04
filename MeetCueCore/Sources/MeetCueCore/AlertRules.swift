@@ -71,7 +71,7 @@ public enum AlertRules {
             let lateAlertEnds = meeting.start.addingTimeInterval(config.lateAlertWindow)
             switch state {
             case .done:
-                continue
+                candidates.append(meeting.end)
             case .waiting:
                 candidates += [alertAt, lateAlertEnds, meeting.end]
             case .snoozed(let until):

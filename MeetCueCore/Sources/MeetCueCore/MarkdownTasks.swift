@@ -95,7 +95,7 @@ public enum MarkdownTasks {
     }
 
     private static func matchTask(_ line: String) -> (lead: Substring, mark: Substring, close: Substring, body: Substring, eol: Substring)? {
-        guard let match = line.wholeMatch(of: /(?<lead>\s*(?:[-*+]|\d+[.)])\s+\[)(?<mark>[ xX])(?<close>\]\s+)(?<body>.*?)(?<eol>\r?)/) else {
+        guard let match = line.wholeMatch(of: /(?<lead>\s*(?:[-*+]|\d+[.)])[ \t]+\[)(?<mark>[ xX])(?<close>\][ \t]+)(?<body>.*?)(?<eol>\r?)/) else {
             return nil
         }
         return (match.output.lead, match.output.mark, match.output.close, match.output.body, match.output.eol)
