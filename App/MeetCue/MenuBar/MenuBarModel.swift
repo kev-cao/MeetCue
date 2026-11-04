@@ -8,6 +8,8 @@ final class MenuBarModel {
     let store: MeetingStore
     let quiet: QuietMode
     private(set) var now: Date
+    /// Set when the dropdown opens with Option held, to reveal "Simulate meeting in 2 minutes".
+    var showsSimulateItem = false
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let clock: () -> Date

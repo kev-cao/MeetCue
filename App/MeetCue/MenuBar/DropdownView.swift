@@ -5,6 +5,7 @@ import SwiftUI
 struct DropdownView: View {
     let model: MenuBarModel
     let dismiss: @MainActor () -> Void
+    var simulateMeeting: (@MainActor () -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -18,6 +19,17 @@ struct DropdownView: View {
             }
             Divider()
             QuietModeMenu(model: model, dismiss: dismiss)
+            if model.showsSimulateItem, let simulateMeeting {
+                Button {
+                    simulateMeeting()
+                    dismiss()
+                } label: {
+                    Label("Simulate meeting in 2 minutes", systemImage: "bell.badge")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
             Divider()
             Button {
                 NSApp.terminate(nil)

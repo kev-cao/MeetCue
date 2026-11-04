@@ -78,6 +78,7 @@ final class StatusItemController: NSObject {
         guard let button = statusItem.button else { return }
         model.store.refresh()
         model.tick()
+        model.showsSimulateItem = NSApp.currentEvent?.modifierFlags.contains(.option) ?? false
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate()
     }

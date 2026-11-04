@@ -25,6 +25,12 @@ struct SnapshotTests {
         try render(DropdownView(model: model, dismiss: {}).background(.white), named: "dropdown")
     }
 
+    @Test func rendersSimulateItemWithOption() throws {
+        let model = model(at: AppFixtures.at(14, 6))
+        model.showsSimulateItem = true
+        try render(DropdownView(model: model, dismiss: {}, simulateMeeting: {}).background(.white), named: "dropdown-option")
+    }
+
     @Test func rendersAccessPrompt() throws {
         source.access = .denied
         try render(DropdownView(model: model(at: AppFixtures.at(14, 6)), dismiss: {}).background(.white), named: "dropdown-access")
