@@ -103,3 +103,7 @@ func eventually(timeout: Duration = .seconds(2.5), _ condition: () -> Bool) asyn
     }
     return condition()
 }
+
+final class InMemoryHiddenCalendarStorage: HiddenCalendarStorage {
+    var hiddenCalendarIDs: Set<String> = []
+}
