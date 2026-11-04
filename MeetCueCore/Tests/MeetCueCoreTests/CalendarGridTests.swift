@@ -25,6 +25,15 @@ struct CalendarGridTests {
         #expect(days.last == Fixtures.at(0, 0, month: 12, day: 5))
     }
 
+    @Test func monthDaysStartAtMidnightWhenTheFirstDayHasNone() {
+        var calendar = Fixtures.calendar
+        calendar.timeZone = TimeZone(identifier: "America/Asuncion")!
+        let date = calendar.date(from: DateComponents(year: 2017, month: 10, day: 15, hour: 12))!
+        let days = CalendarGrid.days(.month, containing: date, calendar: calendar)
+        #expect(days.allSatisfy { $0 == calendar.startOfDay(for: $0) })
+        #expect(days.count == 35)
+    }
+
     @Test func weekAcrossTheDaylightSavingChangeHasSevenMidnights() {
         let days = CalendarGrid.days(.week, containing: Fixtures.at(9, 0, day: 2), calendar: Fixtures.calendar)
         #expect(days.count == 7)

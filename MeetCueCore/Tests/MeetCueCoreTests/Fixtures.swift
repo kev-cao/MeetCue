@@ -5,6 +5,8 @@ enum Fixtures {
     static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        calendar.locale = Locale(identifier: "en_US")
+        calendar.firstWeekday = 1
         return calendar
     }()
 

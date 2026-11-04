@@ -27,18 +27,18 @@ public enum CalendarGrid {
             return [day]
         case .week:
             first = startOfWeek(day, calendar: calendar)
-            last = calendar.date(byAdding: .day, value: 6, to: first)!
+            last = addDays(6, to: first, calendar: calendar)
         case .month:
             let month = calendar.dateInterval(of: .month, for: day)!
             first = startOfWeek(month.start, calendar: calendar)
-            let lastOfMonth = calendar.date(byAdding: .day, value: -1, to: month.end)!
-            last = calendar.date(byAdding: .day, value: 6, to: startOfWeek(lastOfMonth, calendar: calendar))!
+            let lastOfMonth = addDays(-1, to: month.end, calendar: calendar)
+            last = addDays(6, to: startOfWeek(lastOfMonth, calendar: calendar), calendar: calendar)
         }
         var result: [Date] = []
         var current = first
         while current <= last {
             result.append(current)
-            current = calendar.date(byAdding: .day, value: 1, to: current)!
+            current = addDays(1, to: current, calendar: calendar)
         }
         return result
     }
@@ -46,7 +46,7 @@ public enum CalendarGrid {
     /// From the start of the first day shown to the start of the day after the last.
     public static func interval(_ mode: CalendarMode, containing date: Date, calendar: Calendar) -> DateInterval {
         let days = days(mode, containing: date, calendar: calendar)
-        return DateInterval(start: days[0], end: calendar.date(byAdding: .day, value: 1, to: days[days.count - 1])!)
+        return DateInterval(start: days[0], end: addDays(1, to: days[days.count - 1], calendar: calendar))
     }
 
     /// `date` moved by `count` days, weeks or months.
@@ -62,7 +62,13 @@ public enum CalendarGrid {
     private static func startOfWeek(_ day: Date, calendar: Calendar) -> Date {
         let weekday = calendar.component(.weekday, from: day)
         let offset = (weekday - calendar.firstWeekday + 7) % 7
-        return calendar.date(byAdding: .day, value: -offset, to: day)!
+        return addDays(-offset, to: day, calendar: calendar)
+    }
+
+    /// A zone's midnight can be missing on a daylight saving change, and adding days to the shifted
+    /// time of day would carry the shift into every later day.
+    private static func addDays(_ count: Int, to day: Date, calendar: Calendar) -> Date {
+        calendar.startOfDay(for: calendar.date(byAdding: .day, value: count, to: day)!)
     }
 }
 
