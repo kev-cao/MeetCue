@@ -201,6 +201,12 @@ final class CalendarWindowModel {
     /// "Wed".
     func weekdayLabel(_ day: Date) -> String { format(day, Date.FormatStyle().weekday(.abbreviated)) }
 
+    /// "W", for the mini month.
+    func weekdayInitial(_ day: Date) -> String { format(day, Date.FormatStyle().weekday(.narrow)) }
+
+    /// "November 2026", for the mini month.
+    func monthTitle(_ day: Date) -> String { format(day, Date.FormatStyle().month(.wide).year()) }
+
     func dayNumber(_ day: Date) -> String { "\(calendar.component(.day, from: day))" }
 
     /// "9 AM", "Noon", or "09:00".

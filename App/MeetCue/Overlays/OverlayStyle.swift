@@ -9,8 +9,10 @@ extension EnvironmentValues {
 enum GlassRole {
     /// The full-screen pane behind the alert card.
     case backdrop
-    /// The alert card and the pill.
+    /// The alert card, the pill and the notes card.
     case card
+    /// The calendar window's floating sidebar.
+    case sidebar
 }
 
 extension View {
@@ -33,8 +35,8 @@ private struct GlassSurface<S: Shape>: ViewModifier {
             content.background {
                 shape
                     .fill(fill.opacity(reduceTransparency ? 1 : translucency))
-                    .overlay(shape.stroke(edge, lineWidth: role == .card ? 1 : 0))
-                    .shadow(color: .black.opacity(role == .card ? 0.22 : 0), radius: 28, y: 14)
+                    .overlay(shape.stroke(edge, lineWidth: role == .backdrop ? 0 : 1))
+                    .shadow(color: .black.opacity(shadowOpacity), radius: role == .card ? 28 : 6, y: role == .card ? 14 : 2)
             }
         } else {
             content.glassEffect(.regular, in: shape)
@@ -47,6 +49,15 @@ private struct GlassSurface<S: Shape>: ViewModifier {
         switch role {
         case .backdrop: dark ? Color(white: 0.05) : Color(white: 0.94)
         case .card: dark ? Color(white: 0.19) : .white
+        case .sidebar: dark ? Color(white: 0.17) : Color(red: 0.93, green: 0.935, blue: 0.96)
+        }
+    }
+
+    private var shadowOpacity: Double {
+        switch role {
+        case .backdrop: 0
+        case .card: 0.22
+        case .sidebar: 0.08
         }
     }
 
@@ -54,6 +65,7 @@ private struct GlassSurface<S: Shape>: ViewModifier {
         switch role {
         case .backdrop: dark ? 0.72 : 0.62
         case .card: dark ? 0.88 : 0.84
+        case .sidebar: dark ? 0.9 : 0.85
         }
     }
 
