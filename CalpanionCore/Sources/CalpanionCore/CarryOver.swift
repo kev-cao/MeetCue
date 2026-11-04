@@ -10,7 +10,7 @@ public enum CarryOver {
         for item in MarkdownTasks.items(in: source) where !item.isChecked {
             guard present.insert(normalized(item.text)).inserted else { continue }
             let date = item.carriedFrom ?? dayString(sourceDate, calendar: calendar)
-            newLines.append("- [ ] \(item.text) <!-- carried:\(date) -->")
+            newLines.append(MarkdownTasks.carriedLine(item.text, from: date))
         }
         return newLines.isEmpty ? target : MarkdownTasks.appending(newLines, to: target)
     }

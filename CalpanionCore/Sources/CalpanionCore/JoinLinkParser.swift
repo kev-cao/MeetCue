@@ -46,7 +46,7 @@ public enum JoinLinkParser {
         pieces.append(text.substring(from: cursor))
         let edges = ranges.isEmpty
             ? CharacterSet.whitespacesAndNewlines
-            : CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",;|·-()<>[]"))
+            : CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",;:/|·-()<>[]"))
         let kept = pieces.map { $0.trimmingCharacters(in: edges) }.filter { !$0.isEmpty }
         return kept.isEmpty ? nil : kept.joined(separator: " · ")
     }

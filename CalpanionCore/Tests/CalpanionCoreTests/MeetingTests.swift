@@ -41,4 +41,9 @@ struct MeetingTests {
         #expect(Fixtures.meeting(start: Fixtures.at(14, 30), recurring: true).isRecurring == true)
         #expect(Fixtures.meeting(start: Fixtures.at(14, 30), recurring: false).isRecurring == false)
     }
+
+    @Test func initTruncatesToo() {
+        let fractional = OccurrenceID(seriesKey: "s", originalDate: Fixtures.at(14, 30).addingTimeInterval(0.4))
+        #expect(fractional == OccurrenceID.make(externalID: "s", occurrenceDate: Fixtures.at(14, 30), isRecurring: true))
+    }
 }

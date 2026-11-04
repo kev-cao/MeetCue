@@ -92,4 +92,9 @@ struct JoinLinkParserTests {
         let result = JoinLinkParser.parse(url: nil, location: "  Wing A-  ", notes: nil)
         #expect(result.location == "Wing A-")
     }
+
+    @Test func slashAndColonAreTrimmed() {
+        let result = JoinLinkParser.parse(url: nil, location: "Room 4B / https://acme.zoom.us/j/1", notes: nil)
+        #expect(result.location == "Room 4B")
+    }
 }

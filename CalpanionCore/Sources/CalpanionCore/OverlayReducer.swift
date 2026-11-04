@@ -52,7 +52,7 @@ public enum OverlayReducer {
         let cardOrDone: OverlayState = notes.wantsCard ? .notesCard : .done
         let cardOnRequest: OverlayState = notes.hasCardContent ? .notesCard : .done
         switch (state, event) {
-        case (.done, .show):
+        case (.done, .show), (.done, .join):
             return cardOnRequest
         case (.done, _):
             return .done
@@ -64,7 +64,7 @@ public enum OverlayReducer {
             return quiet ? .dismissed : .alert
         case (.alert, .snooze(let until)):
             return .snoozed(until: until)
-        case (.snoozed, .snoozeElapsed), (.snoozed, .startTime):
+        case (.snoozed, .snoozeElapsed):
             return .alert
         case (.alert, .moveToCorner):
             return .pill

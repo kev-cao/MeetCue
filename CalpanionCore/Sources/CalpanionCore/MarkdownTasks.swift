@@ -36,6 +36,10 @@ public enum MarkdownTasks {
         return appending(["- [ ] \(topic)"], to: markdown)
     }
 
+    static func carriedLine(_ text: String, from date: String) -> String {
+        "- [ ] \(text) <!-- carried:\(date) -->"
+    }
+
     static func appending(_ newLines: [String], to markdown: String) -> String {
         let eol = markdown.contains("\r\n") ? "\r\n" : "\n"
         var lines = newLines

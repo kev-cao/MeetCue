@@ -19,7 +19,7 @@ struct OverlayReducerTests {
         Transition(from: .waiting, event: .alertTime(quiet: true), to: .dismissed),
         Transition(from: .alert, event: .snooze(until: snoozeEnd), to: .snoozed(until: snoozeEnd)),
         Transition(from: .snoozed(until: snoozeEnd), event: .snoozeElapsed, to: .alert),
-        Transition(from: .snoozed(until: snoozeEnd), event: .startTime, to: .alert),
+        Transition(from: .snoozed(until: snoozeEnd), event: .startTime, to: .snoozed(until: snoozeEnd)),
         Transition(from: .alert, event: .moveToCorner, to: .pill),
         Transition(from: .pill, event: .expand, to: .alert),
         Transition(from: .alert, event: .dismiss(afterStart: false), to: .dismissed),
@@ -46,6 +46,7 @@ struct OverlayReducerTests {
         Transition(from: .pill, event: .dismiss(afterStart: true), to: .notesCard),
         Transition(from: .pill, event: .meetingEnded, to: .done),
         Transition(from: .done, event: .show, to: .notesCard),
+        Transition(from: .done, event: .join, to: .notesCard),
         Transition(from: .notesCard, event: .alertTime(quiet: false), to: .notesCard),
         ]
     }()

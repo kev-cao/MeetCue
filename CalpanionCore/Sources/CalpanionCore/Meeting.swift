@@ -43,12 +43,11 @@ public struct OccurrenceID: Hashable, Sendable {
 
     public init(seriesKey: String, originalDate: Date?) {
         self.seriesKey = seriesKey
-        self.originalDate = originalDate
+        self.originalDate = originalDate.map { Date(timeIntervalSince1970: $0.timeIntervalSince1970.rounded(.down)) }
     }
 
     public static func make(externalID: String, occurrenceDate: Date, isRecurring: Bool) -> OccurrenceID {
-        let wholeSeconds = Date(timeIntervalSince1970: occurrenceDate.timeIntervalSince1970.rounded(.down))
-        return OccurrenceID(seriesKey: externalID, originalDate: isRecurring ? wholeSeconds : nil)
+        OccurrenceID(seriesKey: externalID, originalDate: isRecurring ? occurrenceDate : nil)
     }
 
     /// A stable string form for use as a storage key.
