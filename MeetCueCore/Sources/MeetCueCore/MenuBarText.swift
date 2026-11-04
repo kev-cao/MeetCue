@@ -62,6 +62,7 @@ public enum MenuBarText {
     }
 
     /// What the menu bar item shows at `now`. `meetings` comes from `MeetingFilter.relevant`.
+    /// Quiet mode shows the moon except during a live meeting.
     public static func display(
         meetings: [Meeting],
         now: Date,
@@ -70,7 +71,7 @@ public enum MenuBarText {
         calendar: Calendar
     ) -> MenuBarDisplay {
         guard let meeting = featured(in: meetings, now: now, calendar: calendar) else {
-            return MenuBarDisplay(icon: .doneForToday, time: nil, title: nil, scrollsTitle: false)
+            return MenuBarDisplay(icon: quiet ? .quiet : .doneForToday, time: nil, title: nil, scrollsTitle: false)
         }
 
         let isLive = meeting.start <= now

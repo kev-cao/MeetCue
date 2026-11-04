@@ -39,6 +39,10 @@ struct MenuBarTextTests {
         #expect(show([next, sync], at: Fixtures.at(14, 48)).title == "Team Sync")
     }
 
+    @Test func quietShowsMoonWithNothingLeft() {
+        #expect(show([sync], at: Fixtures.at(17, 10), quiet: true) == MenuBarDisplay(icon: .quiet, time: nil, title: nil, scrollsTitle: false))
+    }
+
     @Test func quietIconUnlessLive() {
         #expect(show([sync], at: Fixtures.at(13, 6), quiet: true).icon == .quiet)
         #expect(show([sync], at: Fixtures.at(14, 48), quiet: true).icon == .live)
