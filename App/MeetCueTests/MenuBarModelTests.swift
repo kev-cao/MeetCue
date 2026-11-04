@@ -57,6 +57,14 @@ struct MenuBarModelTests {
         #expect(model.quietStatus == "Quiet until 12:00 AM")
     }
 
+    @Test func moonGoesAwayWhenQuietExpires() {
+        let (model, setTime) = makeModel(at: AppFixtures.at(13, 6))
+        model.setQuiet(.oneHour)
+        #expect(model.display.icon == .quiet)
+        setTime(AppFixtures.at(14, 6))
+        #expect(model.display.icon == .calendar)
+    }
+
     @Test func quietStatusAfterExpiry() {
         let (model, setTime) = makeModel(at: AppFixtures.at(13, 6))
         model.setQuiet(.oneHour)
@@ -77,9 +85,11 @@ struct MenuBarModelTests {
 
     @Test func accessibilityLabelDescribesTheMeeting() {
         let (model, setTime) = makeModel(at: AppFixtures.at(14, 6))
-        #expect(model.accessibilityLabel == "MeetCue, Next: Team Sync, in 24m")
+        #expect(model.accessibilityLabel == "MeetCue, Next: Team Sync, in 24 min")
         setTime(AppFixtures.at(14, 48))
-        #expect(model.accessibilityLabel == "MeetCue, Now: Team Sync, 12m left")
+        #expect(model.accessibilityLabel == "MeetCue, Now: Team Sync, 12 min left")
+        setTime(AppFixtures.at(13, 0))
+        #expect(model.accessibilityLabel == "MeetCue, Next: Team Sync, at 2:30 PM")
         setTime(AppFixtures.at(17, 10))
         model.setQuiet(.untilTurnedOff)
         #expect(model.accessibilityLabel == "MeetCue, no more meetings today, quiet mode on")

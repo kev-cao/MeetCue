@@ -38,7 +38,8 @@ final class StatusItemController: NSObject {
 
         resize()
         trackSize()
-        let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
+        let nextBoundary = Date(timeIntervalSinceReferenceDate: (Date().timeIntervalSinceReferenceDate / 10).rounded(.up) * 10)
+        let timer = Timer(fire: nextBoundary, interval: 10, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.model.tick() }
         }
         // The .common mode keeps the timer firing while a menu tracks events.
@@ -75,6 +76,7 @@ final class StatusItemController: NSObject {
             return
         }
         guard let button = statusItem.button else { return }
+        model.store.refresh()
         model.tick()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate()

@@ -6,6 +6,7 @@ final class EventKitSource: CalendarSource {
     var onChange: (@MainActor () -> Void)?
     private let store = EKEventStore()
     private var observer: NSObjectProtocol?
+    private var hasReadWithAccess = false
 
     init() {
         observer = NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: store, queue: .main) { [weak self] _ in
@@ -28,6 +29,8 @@ final class EventKitSource: CalendarSource {
 
     func events(from start: Date, to end: Date) -> [EventSnapshot] {
         guard access == .granted else { return [] }
+        // A store created before access was granted can keep returning no events.
+        if !hasReadWithAccess { store.reset(); hasReadWithAccess = true }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
         return store.events(matching: predicate).filter { $0.status != .canceled }.map(Self.snapshot)
     }

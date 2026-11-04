@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Waking, a clock or time zone change, and midnight all change which meetings are "today".
+    /// Waking, a clock, time zone or locale change, and midnight all change which meetings are "today" or how times read.
     private func observeSystemChanges(_ handler: @escaping @MainActor @Sendable () -> Void) {
         let center = NotificationCenter.default
         let workspace = NSWorkspace.shared.notificationCenter
@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             (center, .NSCalendarDayChanged),
             (center, .NSSystemClockDidChange),
             (center, .NSSystemTimeZoneDidChange),
+            (center, NSLocale.currentLocaleDidChangeNotification),
         ]
         for (notificationCenter, name) in sources {
             observers.append(notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in

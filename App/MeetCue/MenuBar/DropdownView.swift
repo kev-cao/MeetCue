@@ -27,7 +27,7 @@ struct DropdownView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-                .keyboardShortcut("q")
+            .keyboardShortcut("q")
         }
         .padding(16)
         .frame(width: 300, alignment: .leading)

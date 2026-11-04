@@ -44,6 +44,16 @@ struct MeetingStoreTests {
         #expect(store.meetings.count == 1)
     }
 
+    @Test func deniedRequestLeavesNoMeetings() async {
+        source.access = .notDetermined
+        source.accessAfterRequest = .denied
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30))]
+        let store = makeStore()
+        await store.requestAccess()
+        #expect(store.access == .denied)
+        #expect(store.meetings.isEmpty)
+    }
+
     @Test func changingTheFilterReloads() {
         source.snapshots = [
             AppFixtures.event(start: AppFixtures.at(14, 30)),

@@ -59,9 +59,13 @@ final class MenuBarModel {
     var accessibilityLabel: String {
         if needsAccess { return "MeetCue, calendar access needed" }
         let quietSuffix = quiet.isOn(at: now) ? ", quiet mode on" : ""
-        guard let meeting = featured, let time = display.time else { return "MeetCue, no more meetings today" + quietSuffix }
-        let lead = meeting.start <= now ? "Now" : "Next"
-        return "MeetCue, \(lead): \(meeting.title), \(time)" + quietSuffix
+        guard let meeting = featured else { return "MeetCue, no more meetings today" + quietSuffix }
+        let lead = isLive(meeting) ? "Now" : "Next"
+        let countdown = detail(for: meeting).components(separatedBy: " · ")
+        let when = countdown.count > 1
+            ? countdown[1]
+            : "at " + MenuBarText.clockTime(meeting.start, calendar: calendar, uses24Hour: settings.uses24HourClock)
+        return "MeetCue, \(lead): \(meeting.title), \(when)" + quietSuffix
     }
 
     func isLive(_ meeting: Meeting) -> Bool { meeting.start <= now && now < meeting.end }
