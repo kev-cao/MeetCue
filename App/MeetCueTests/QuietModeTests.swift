@@ -1,0 +1,33 @@
+import Foundation
+import Testing
+@testable import MeetCue
+
+@MainActor
+struct QuietModeTests {
+    let defaults = AppFixtures.isolatedDefaults()
+
+    @Test func durations() {
+        let quiet = QuietMode(defaults: defaults)
+        quiet.turnOn(.oneHour, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        #expect(quiet.until == AppFixtures.at(14, 0))
+        quiet.turnOn(.endOfToday, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        #expect(quiet.until == AppFixtures.at(0, 0, day: 5))
+        quiet.turnOn(.untilTurnedOff, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        #expect(quiet.until == .distantFuture)
+    }
+
+    @Test func expires() {
+        let quiet = QuietMode(defaults: defaults)
+        quiet.turnOn(.oneHour, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        #expect(quiet.isOn(at: AppFixtures.at(13, 59)))
+        #expect(!quiet.isOn(at: AppFixtures.at(14, 0)))
+    }
+
+    @Test func persistsAcrossLaunchesUntilTurnedOff() {
+        QuietMode(defaults: defaults).turnOn(.untilTurnedOff, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        let relaunched = QuietMode(defaults: defaults)
+        #expect(relaunched.until == .distantFuture)
+        relaunched.turnOff()
+        #expect(QuietMode(defaults: defaults).until == nil)
+    }
+}
