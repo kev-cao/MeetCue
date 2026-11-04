@@ -128,4 +128,13 @@ struct AlertRulesTests {
         let wake = AlertRules.nextWake([(sync, .waiting), (standup, .waiting)], now: Fixtures.at(9, 0), config: config)
         #expect(wake == Fixtures.at(9, 58))
     }
+
+    @Test func nextAlertIsTheEarliestPendingAlert() {
+        let standup = Fixtures.meeting("Standup", start: Fixtures.at(14, 40), series: "b")
+        let snoozed = OverlayState.snoozed(until: Fixtures.at(14, 31))
+        #expect(AlertRules.nextAlert([(sync, .waiting), (standup, .waiting)], now: Fixtures.at(14, 0), config: config) == Fixtures.at(14, 28))
+        #expect(AlertRules.nextAlert([(sync, snoozed), (standup, .waiting)], now: Fixtures.at(14, 30), config: config) == Fixtures.at(14, 31))
+        #expect(AlertRules.nextAlert([(sync, .alert), (standup, .pill)], now: Fixtures.at(14, 30), config: config) == nil)
+        #expect(AlertRules.nextAlert([(sync, .dismissed), (standup, .done)], now: Fixtures.at(14, 0), config: config) == nil)
+    }
 }

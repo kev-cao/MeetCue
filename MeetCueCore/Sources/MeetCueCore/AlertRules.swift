@@ -84,4 +84,24 @@ public enum AlertRules {
         }
         return candidates.filter { $0 > now }.min()
     }
+
+    /// The earliest moment after `now` at which a full-screen alert may appear: a waiting
+    /// meeting's alert time or the end of a snooze. Quiet mode is ignored, since it's checked
+    /// only when the alert comes due. Entries must already be settled at `now`.
+    public static func nextAlert(
+        _ entries: [(meeting: Meeting, state: OverlayState)],
+        now: Date,
+        config: AlertConfig
+    ) -> Date? {
+        entries
+            .compactMap { meeting, state -> Date? in
+                switch state {
+                case .waiting: meeting.start.addingTimeInterval(-config.leadTime)
+                case .snoozed(let until): until
+                default: nil
+                }
+            }
+            .filter { $0 > now }
+            .min()
+    }
 }
