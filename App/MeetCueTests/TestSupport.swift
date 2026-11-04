@@ -20,10 +20,12 @@ enum AppFixtures {
         minutes: Int = 30,
         series: String = "series-1",
         status: RSVP = .accepted,
-        location: String? = nil
+        location: String? = nil,
+        recurring: Bool = false
     ) -> EventSnapshot {
         EventSnapshot(
             seriesKey: series,
+            isRecurring: recurring,
             title: title,
             start: start,
             end: start.addingTimeInterval(TimeInterval(minutes * 60)),

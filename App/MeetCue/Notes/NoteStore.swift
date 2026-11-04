@@ -59,6 +59,28 @@ final class NoteStore {
         setMarkdown(MarkdownTasks.appendTopic(topic, to: markdown(for: meeting.id)), for: meeting)
     }
 
+    /// Notes whose carry-over hasn't run yet, for recurring occurrences that started before `date`.
+    func pendingCarryOvers(startedBefore date: Date) -> [Note] {
+        notes.values
+            .filter { $0.isRecurring && !$0.carriedForward && $0.occurrenceStart < date }
+            .sorted { ($0.occurrenceStart, $0.occurrenceID) < ($1.occurrenceStart, $1.occurrenceID) }
+    }
+
+    /// Appends `source`'s unchecked topics to `target`'s note with carried markers, creating the note
+    /// if needed, and marks `source` as carried forward.
+    func carry(_ source: Note, into target: Meeting, calendar: Calendar) {
+        let merged = CarryOver.carry(from: source.markdown, sourceDate: source.occurrenceStart, into: markdown(for: target.id), calendar: calendar)
+        setMarkdown(merged, for: target)
+        markCarriedForward(source)
+    }
+
+    func markCarriedForward(_ source: Note) {
+        guard var note = notes[source.occurrenceID], !note.carriedForward else { return }
+        note.carriedForward = true
+        notes[source.occurrenceID] = note
+        changed(source.occurrenceID)
+    }
+
     /// Saves pending changes now, such as when the app quits.
     func flush() {
         saveTask?.cancel()
