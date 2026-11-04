@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import CalpanionCore
+@testable import MeetCueCore
 
 struct Transition: Sendable, CustomTestStringConvertible {
     let from: OverlayState

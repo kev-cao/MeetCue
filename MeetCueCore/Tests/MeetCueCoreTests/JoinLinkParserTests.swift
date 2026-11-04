@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import CalpanionCore
+@testable import MeetCueCore
 
 struct JoinLinkParserTests {
     @Test func eventURLFieldWinsOverLocationAndNotes() {

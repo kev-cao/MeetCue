@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import CalpanionCore
+@testable import MeetCueCore
 
 struct MenuBarTextTests {
     let sync = Fixtures.meeting(start: Fixtures.at(14, 30))

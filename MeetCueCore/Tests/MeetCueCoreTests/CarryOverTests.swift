@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import CalpanionCore
+@testable import MeetCueCore
 
 struct CarryOverTests {
     let oct28 = Fixtures.at(14, 30, month: 10, day: 28)

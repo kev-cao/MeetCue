@@ -1,5 +1,5 @@
 import Foundation
-@testable import CalpanionCore
+@testable import MeetCueCore
 
 enum Fixtures {
     static let calendar: Calendar = {
