@@ -4,6 +4,16 @@ extension EnvironmentValues {
     /// Draws glass surfaces as solid translucent fills. `ImageRenderer` can't draw `glassEffect`,
     /// so tests that render overlays to images set it.
     @Entry var solidGlass = false
+    /// The Glass opacity setting, from 0 (the glass as the system draws it) to 1 (opaque).
+    @Entry var glassOpacity: Double = 0
+}
+
+enum GlassTint {
+    /// How opaque the tint layer of a glass surface is: `base` raised toward 1 by the Glass opacity
+    /// setting. Reduce transparency makes every surface opaque.
+    static func opacity(base: Double, glassOpacity: Double, reduceTransparency: Bool) -> Double {
+        reduceTransparency ? 1 : base + (1 - base) * glassOpacity
+    }
 }
 
 enum GlassRole {
@@ -16,7 +26,8 @@ enum GlassRole {
 }
 
 extension View {
-    /// Liquid Glass in `shape`, or a solid fill when `solidGlass` is set or Reduce transparency is on.
+    /// Liquid Glass in `shape` with a tint layer as opaque as `glassOpacity`, or a solid fill when
+    /// `solidGlass` is set or Reduce transparency is on.
     func glassSurface(_ role: GlassRole, in shape: some Shape) -> some View {
         modifier(GlassSurface(role: role, shape: shape))
     }
@@ -27,6 +38,7 @@ private struct GlassSurface<S: Shape>: ViewModifier {
     let shape: S
 
     @Environment(\.solidGlass) private var solidGlass
+    @Environment(\.glassOpacity) private var glassOpacity
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
 
@@ -34,12 +46,14 @@ private struct GlassSurface<S: Shape>: ViewModifier {
         if solidGlass || reduceTransparency {
             content.background {
                 shape
-                    .fill(fill.opacity(reduceTransparency ? 1 : translucency))
+                    .fill(fill.opacity(GlassTint.opacity(base: translucency, glassOpacity: glassOpacity, reduceTransparency: reduceTransparency)))
                     .overlay(shape.stroke(edge, lineWidth: role == .backdrop ? 0 : 1))
                     .shadow(color: .black.opacity(shadowOpacity), radius: role == .card ? 28 : 6, y: role == .card ? 14 : 2)
             }
         } else {
-            content.glassEffect(.regular, in: shape)
+            content
+                .background { shape.fill(fill.opacity(glassOpacity)) }
+                .glassEffect(.regular, in: shape)
         }
     }
 

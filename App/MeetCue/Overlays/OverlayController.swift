@@ -3,11 +3,14 @@ import MeetCueCore
 import Observation
 
 /// Shows and hides the overlay panels to match `OverlayModel`. Each overlay surface gets one
-/// `sync` method. The notes card sits in the same corner as the pills, below them.
+/// `sync` method. The notes card sits in the same corner as the pills, below them. The alert goes
+/// on the displays the settings choose and plays the alert sound when it appears.
 @MainActor
 final class OverlayController {
     private let model: OverlayModel
     private var alertPanels: [AlertPanel] = []
+    private var alertPanelDisplays: AlertDisplays?
+    private var alertIDs: Set<OccurrenceID> = []
     private let pillPanel: CornerPanel<PillStack>
     private let cardPanel: CornerPanel<NotesCardStack>
     private let cardLayout = NotesCardLayout()
@@ -24,6 +27,17 @@ final class OverlayController {
     private static let returnKey: UInt16 = 36
     private static let keypadEnter: UInt16 = 76
     private static let blockingModifiers: NSEvent.ModifierFlags = [.shift, .control, .option, .command]
+
+    /// The displays that get an alert panel: all of them, or the one with the menu bar.
+    static func alertScreens<Screen>(_ screens: [Screen], displays: AlertDisplays) -> [Screen] {
+        displays == .main ? Array(screens.prefix(1)) : screens
+    }
+
+    /// Whether the alert has a meeting it didn't have at the last sync. The sound plays then, and
+    /// not when the panels are rebuilt for a display change.
+    static func alertGainedMeetings(from shown: Set<OccurrenceID>, to wanted: Set<OccurrenceID>) -> Bool {
+        !wanted.subtracting(shown).isEmpty
+    }
 
     /// Caps Lock, keypad, function and help flags don't count as modifiers.
     static func overlayKey(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> OverlayKey? {
@@ -51,6 +65,7 @@ final class OverlayController {
     private func track() {
         withObservationTracking {
             _ = model.alertMeetings
+            _ = model.settings.alertDisplays
             _ = model.pillMeetings
             _ = model.notice
             _ = model.notesCardMeeting
@@ -68,17 +83,25 @@ final class OverlayController {
     }
 
     private func syncAlert() {
-        let wanted = !model.alertMeetings.isEmpty
-        if wanted && alertPanels.isEmpty {
-            showAlert()
-        } else if !wanted && !alertPanels.isEmpty {
+        let ids = Set(model.alertMeetings.map(\.id))
+        if Self.alertGainedMeetings(from: alertIDs, to: ids) {
+            model.settings.alertSound.play()
+        }
+        alertIDs = ids
+        let displays = model.settings.alertDisplays
+        if !ids.isEmpty && (alertPanels.isEmpty || alertPanelDisplays != displays) {
+            closeAlert()
+            showAlert(on: displays)
+        } else if ids.isEmpty && !alertPanels.isEmpty {
             closeAlert()
         }
     }
 
-    private func showAlert() {
-        guard !NSScreen.screens.isEmpty else { return }
-        alertPanels = NSScreen.screens.map { AlertPanel(screen: $0, model: model) }
+    private func showAlert(on displays: AlertDisplays) {
+        let screens = Self.alertScreens(NSScreen.screens, displays: displays)
+        guard !screens.isEmpty else { return }
+        alertPanels = screens.map { AlertPanel(screen: $0, model: model) }
+        alertPanelDisplays = displays
         for panel in alertPanels {
             panel.orderFrontRegardless()
         }
@@ -179,5 +202,12 @@ final class OverlayController {
             ? size
             : CGSize(width: NotesCardContent.width + 2 * NotesCardContent.margin, height: 240)
         cardPanel.place(size: fitted, below: pillsHeight)
+    }
+}
+
+extension AlertSound {
+    func play() {
+        guard self != .none else { return }
+        NSSound(named: NSSound.Name(title))?.play()
     }
 }

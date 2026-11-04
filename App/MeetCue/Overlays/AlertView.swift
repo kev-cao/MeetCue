@@ -8,6 +8,7 @@ struct AlertScreen: View {
         TimelineView(.periodic(from: .wholeSecond, by: 1)) { _ in
             AlertScreenContent(model: model, now: model.currentTime())
         }
+        .environment(\.glassOpacity, model.settings.glassOpacity)
     }
 }
 

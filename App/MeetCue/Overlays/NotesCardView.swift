@@ -27,6 +27,7 @@ struct NotesCardStack: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .environment(\.glassOpacity, model.settings.glassOpacity)
     }
 }
 
