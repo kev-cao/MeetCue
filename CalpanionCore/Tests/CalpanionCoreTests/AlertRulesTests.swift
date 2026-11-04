@@ -72,11 +72,55 @@ struct AlertRulesTests {
         #expect(AlertRules.nextWake([(sync, .done)], now: Fixtures.at(14, 28), config: config) == nil)
     }
 
-    @Test func nextWakeIncludesQuietExpiryButNotUntilOff() {
+    @Test func nextWakeIgnoresQuietExpiry() {
         let timed = AlertConfig(leadTime: 120, quietUntil: Fixtures.at(14, 10))
         let untilOff = AlertConfig(leadTime: 120, quietUntil: .distantFuture)
-        #expect(AlertRules.nextWake([(sync, .waiting)], now: Fixtures.at(14, 0), config: timed) == Fixtures.at(14, 10))
+        #expect(AlertRules.nextWake([(sync, .waiting)], now: Fixtures.at(14, 0), config: timed) == Fixtures.at(14, 28))
         #expect(AlertRules.nextWake([(sync, .waiting)], now: Fixtures.at(14, 0), config: untilOff) == Fixtures.at(14, 28))
+    }
+
+    @Test func snoozeAfterStartIsKept() {
+        let until = Fixtures.at(14, 40)
+        #expect(settle(.snoozed(until: until), at: Fixtures.at(14, 35)) == .snoozed(until: until))
+        #expect(settle(.snoozed(until: until), at: until) == .alert)
+    }
+
+    @Test func nextWakeForSnoozeIsItsEnd() {
+        let wake = AlertRules.nextWake([(sync, .snoozed(until: Fixtures.at(14, 40)))], now: Fixtures.at(14, 35), config: config)
+        #expect(wake == Fixtures.at(14, 40))
+    }
+
+    @Test func lateWindowBoundary() {
+        #expect(settle(at: Fixtures.at(14, 35)) == .notesCard)
+        #expect(settle(at: Fixtures.at(14, 34, second: 59)) == .alert)
+    }
+
+    @Test func endClosesAnOpenAlert() {
+        #expect(settle(.alert, at: Fixtures.at(15, 0)) == .done)
+    }
+
+    @Test func zeroLeadTimeAlertsAtStart() {
+        let atStart = AlertConfig(leadTime: 0)
+        #expect(settle(at: Fixtures.at(14, 29, second: 59), config: atStart) == .waiting)
+        #expect(settle(at: Fixtures.at(14, 30), config: atStart) == .alert)
+    }
+
+    @Test func quietSkipIsPermanent() {
+        let quiet = AlertConfig(leadTime: 120, quietUntil: Fixtures.at(14, 29))
+        #expect(settle(at: Fixtures.at(14, 28), config: quiet) == .dismissed)
+        #expect(settle(.dismissed, at: Fixtures.at(14, 29, second: 30), config: quiet) == .dismissed)
+    }
+
+    @Test func quietWakeAfterStartGoesToNotes() {
+        let quiet = AlertConfig(leadTime: 120, quietUntil: .distantFuture)
+        #expect(settle(at: Fixtures.at(14, 33), config: quiet) == .notesCard)
+    }
+
+    @Test func settleIsIdempotent() {
+        for now in [Fixtures.at(14, 27), Fixtures.at(14, 28), Fixtures.at(14, 31), Fixtures.at(14, 36), Fixtures.at(15, 1)] {
+            let once = settle(at: now)
+            #expect(settle(once, at: now) == once)
+        }
     }
 
     @Test func nextWakeIsEarliestAcrossMeetings() {

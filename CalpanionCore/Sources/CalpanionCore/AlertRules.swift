@@ -5,6 +5,7 @@ public struct AlertConfig: Sendable, Equatable {
     /// How long after start a missed alert is still shown, e.g. after waking the Mac.
     public var lateAlertWindow: TimeInterval
     /// Nil when quiet mode is off; `.distantFuture` for "until I turn it off".
+    /// A meeting whose alert time falls inside quiet mode never alerts, even if quiet mode ends before it starts.
     public var quietUntil: Date?
 
     public init(leadTime: TimeInterval = 120, lateAlertWindow: TimeInterval = 300, quietUntil: Date? = nil) {
@@ -20,6 +21,7 @@ public struct AlertConfig: Sendable, Equatable {
 
 public enum AlertRules {
     /// The event due for `meeting` at `now`, or nil if nothing is due.
+    /// A meeting's end always ends it, even while its alert is up.
     public static func dueEvent(for meeting: Meeting, state: OverlayState, now: Date, config: AlertConfig) -> OverlayEvent? {
         if state == .done { return nil }
         if now >= meeting.end { return .meetingEnded }
@@ -31,9 +33,7 @@ public enum AlertRules {
             }
             return nil
         case .snoozed(let until):
-            if now >= until { return .snoozeElapsed }
-            if now >= meeting.start { return .startTime }
-            return nil
+            return now >= until ? .snoozeElapsed : nil
         case .pill, .dismissed:
             return now >= meeting.start ? .startTime : nil
         case .alert, .notesCard, .hidden, .done:
@@ -59,15 +59,13 @@ public enum AlertRules {
     }
 
     /// The earliest moment after `now` at which an event may become due.
+    /// Entries must already be settled at `now`.
     public static func nextWake(
         _ entries: [(meeting: Meeting, state: OverlayState)],
         now: Date,
         config: AlertConfig
     ) -> Date? {
         var candidates: [Date] = []
-        if let quietUntil = config.quietUntil, quietUntil != .distantFuture {
-            candidates.append(quietUntil)
-        }
         for (meeting, state) in entries {
             let alertAt = meeting.start.addingTimeInterval(-config.leadTime)
             let lateAlertEnds = meeting.start.addingTimeInterval(config.lateAlertWindow)
@@ -77,7 +75,7 @@ public enum AlertRules {
             case .waiting:
                 candidates += [alertAt, lateAlertEnds, meeting.end]
             case .snoozed(let until):
-                candidates += [until, meeting.start, meeting.end]
+                candidates += [until, meeting.end]
             case .pill, .dismissed:
                 candidates += [meeting.start, meeting.end]
             case .alert, .notesCard, .hidden:
