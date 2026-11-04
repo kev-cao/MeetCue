@@ -33,6 +33,13 @@ struct MenuBarModelTests {
         #expect(model.display.icon == .live)
     }
 
+    @Test func isLiveFollowsTheClock() {
+        let (model, setTime) = makeModel(at: AppFixtures.at(14, 6))
+        #expect(!model.isLive(model.featured!))
+        setTime(AppFixtures.at(14, 48))
+        #expect(model.isLive(model.featured!))
+    }
+
     @Test func quietModeShowsTheMoon() {
         let (model, _) = makeModel(at: AppFixtures.at(13, 6))
         model.setQuiet(.oneHour)

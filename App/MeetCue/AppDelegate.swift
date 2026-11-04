@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let store = MeetingStore(source: EventKitSource())
         let model = MenuBarModel(store: store, quiet: QuietMode())
-        statusItem = StatusItemController(model: model, dropdown: DropdownView(model: model))
+        statusItem = StatusItemController(model: model) { dismiss in DropdownView(model: model, dismiss: dismiss) }
         observeSystemChanges {
             store.refresh()
             model.tick()

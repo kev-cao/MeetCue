@@ -15,7 +15,7 @@ final class StatusItemController: NSObject {
     private let label: PassthroughHostingView<MenuBarLabel>
     private var ticker: Timer?
 
-    init(model: MenuBarModel, dropdown: some View) {
+    init<Dropdown: View>(model: MenuBarModel, dropdown: (_ dismiss: @escaping @MainActor () -> Void) -> Dropdown) {
         self.model = model
         label = PassthroughHostingView(rootView: MenuBarLabel(model: model))
         super.init()
@@ -31,7 +31,7 @@ final class StatusItemController: NSObject {
             button.target = self
             button.action = #selector(togglePopover)
         }
-        let controller = NSHostingController(rootView: AnyView(dropdown))
+        let controller = NSHostingController(rootView: AnyView(dropdown { [weak self] in self?.popover.performClose(nil) }))
         controller.sizingOptions = .preferredContentSize
         popover.contentViewController = controller
         popover.behavior = .transient

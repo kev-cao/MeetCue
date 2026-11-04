@@ -23,12 +23,12 @@ struct SnapshotTests {
     @Test func rendersLabelAndDropdown() throws {
         let model = model(at: AppFixtures.at(14, 6))
         try render(MenuBarLabel(model: model).background(.white), named: "menubar-label")
-        try render(DropdownView(model: model).background(.white), named: "dropdown")
+        try render(DropdownView(model: model, dismiss: {}).background(.white), named: "dropdown")
     }
 
     @Test func rendersAccessPrompt() throws {
         source.access = .denied
-        try render(DropdownView(model: model(at: AppFixtures.at(14, 6))).background(.white), named: "dropdown-access")
+        try render(DropdownView(model: model(at: AppFixtures.at(14, 6)), dismiss: {}).background(.white), named: "dropdown-access")
     }
 
     private func render(_ view: some View, named name: String) throws {

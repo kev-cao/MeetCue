@@ -64,6 +64,8 @@ final class MenuBarModel {
         return "MeetCue, \(lead): \(meeting.title), \(time)" + quietSuffix
     }
 
+    func isLive(_ meeting: Meeting) -> Bool { meeting.start <= now && now < meeting.end }
+
     func detail(for meeting: Meeting) -> String {
         MenuBarText.detail(for: meeting, now: now, calendar: calendar, uses24Hour: settings.uses24HourClock)
     }
