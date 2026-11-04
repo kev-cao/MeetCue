@@ -5,7 +5,7 @@ public struct MenuBarSettings: Sendable, Equatable {
     public enum Scroll: Sendable { case always, nearMeetings, never }
 
     public var content: Content
-    /// Characters of the title shown at once; longer titles may scroll.
+    /// Characters of the title shown at once, counted as Swift `Character`s (grapheme clusters), not display width; longer titles may scroll.
     public var titleLength: Int
     public var scroll: Scroll
     /// Mirrors the macOS 24-hour time setting. The app reads it from the system and passes it in.
@@ -31,11 +31,20 @@ public struct MenuBarDisplay: Equatable, Sendable {
     public let time: String?
     public let title: String?
     public let scrollsTitle: Bool
+
+    public init(icon: Icon, time: String?, title: String?, scrollsTitle: Bool) {
+        self.icon = icon
+        self.time = time
+        self.title = title
+        self.scrollsTitle = scrollsTitle
+    }
 }
 
 public enum MenuBarText {
     /// What the menu bar item shows at `now`. `meetings` should already be
     /// filtered to visible calendars; all-day events are skipped here.
+    /// When several meetings are live, the one that started most recently wins, then the one ending sooner, then the title.
+    /// The next meeting shows if it starts later today or within the next hour.
     public static func display(
         meetings: [Meeting],
         now: Date,
@@ -46,9 +55,12 @@ public enum MenuBarText {
         let timed = meetings.filter { !$0.isAllDay }
         let current = timed
             .filter { $0.start <= now && now < $0.end }
-            .min { $0.start < $1.start }
+            .min { ($1.start, $0.end, $0.title) < ($0.start, $1.end, $1.title) }
         let next = timed
-            .filter { $0.start > now && calendar.isDate($0.start, inSameDayAs: now) }
+            .filter {
+                $0.start > now
+                    && (calendar.isDate($0.start, inSameDayAs: now) || $0.start.timeIntervalSince(now) <= 3600)
+            }
             .min { $0.start < $1.start }
         guard let meeting = current ?? next else {
             return MenuBarDisplay(icon: .doneForToday, time: nil, title: nil, scrollsTitle: false)
@@ -85,6 +97,7 @@ public enum MenuBarText {
         max(1, Int((interval / 60).rounded(.up)))
     }
 
+    /// "2:30 PM" or "14:30". The 12-hour form uses English AM/PM regardless of locale.
     static func clockTime(_ date: Date, calendar: Calendar, uses24Hour: Bool) -> String {
         let parts = calendar.dateComponents([.hour, .minute], from: date)
         let hour = parts.hour ?? 0

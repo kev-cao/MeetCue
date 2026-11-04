@@ -75,8 +75,42 @@ struct MenuBarTextTests {
 
     @Test func contentSetting() {
         #expect(show([sync], at: Fixtures.at(14, 6), settings: MenuBarSettings(content: .timeOnly)).title == nil)
+        #expect(show([sync], at: Fixtures.at(14, 6), settings: MenuBarSettings(content: .timeOnly)).time == "in 24m")
         let iconOnly = show([sync], at: Fixtures.at(14, 6), settings: MenuBarSettings(content: .iconOnly))
         #expect(iconOnly.time == nil)
         #expect(iconOnly.title == nil)
+    }
+
+    @Test func exactlyAnHourAwayCountsDown() {
+        #expect(show([sync], at: Fixtures.at(13, 30)).time == "in 60m")
+        #expect(show([sync], at: Fixtures.at(13, 29, second: 59)).time == "2:30 PM")
+    }
+
+    @Test func liveFromStartToJustBeforeEnd() {
+        let start = show([sync], at: Fixtures.at(14, 30))
+        #expect(start.icon == .live)
+        #expect(start.time == "30m left")
+        #expect(show([sync], at: Fixtures.at(14, 59, second: 59)).time == "1m left")
+        #expect(show([sync], at: Fixtures.at(15, 0)).icon == .doneForToday)
+    }
+
+    @Test func latestStartedLiveMeetingWins() {
+        let focus = Fixtures.meeting("Focus", start: Fixtures.at(9, 0), minutes: 480, series: "f")
+        let display = show([focus, sync], at: Fixtures.at(14, 40))
+        #expect(display.title == "Team Sync")
+        #expect(display.time == "20m left")
+    }
+
+    @Test func meetingJustAfterMidnightShowsWithinTheHour() {
+        let late = Fixtures.meeting("Late call", start: Fixtures.at(0, 10, day: 5), series: "l")
+        let near = show([late], at: Fixtures.at(23, 30))
+        #expect(near.time == "in 40m")
+        #expect(near.title == "Late call")
+        #expect(show([late], at: Fixtures.at(22, 30)).icon == .doneForToday)
+    }
+
+    @Test func customTitleLength() {
+        let settings = MenuBarSettings(titleLength: 5)
+        #expect(show([sync], at: Fixtures.at(14, 6), settings: settings).scrollsTitle == true)
     }
 }
