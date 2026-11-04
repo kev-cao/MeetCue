@@ -34,20 +34,9 @@ enum AppFixtures {
     }
 }
 
-/// UserDefaults in a suite of its own. Its domain and plist file are removed when the test that holds it ends.
-final class TestDefaults {
-    let defaults: UserDefaults
-    private let suiteName = "MeetCueTests-\(UUID().uuidString)"
-
-    init() {
-        defaults = UserDefaults(suiteName: suiteName)!
-    }
-
-    deinit {
-        UserDefaults.standard.removePersistentDomain(forName: suiteName)
-        let plist = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Preferences/\(suiteName).plist")
-        try? FileManager.default.removeItem(at: plist)
-    }
+final class InMemoryQuietStorage: QuietStorage {
+    var until: Date?
+    var preset: String?
 }
 
 @MainActor

@@ -9,7 +9,6 @@ import Testing
 @MainActor
 struct SnapshotTests {
     let source = FakeCalendarSource()
-    let testDefaults = TestDefaults()
 
     func model(at time: Date) -> MenuBarModel {
         source.snapshots = [
@@ -17,7 +16,7 @@ struct SnapshotTests {
         ]
         let store = MeetingStore(source: source, now: { time }, calendar: AppFixtures.calendar)
         store.refresh()
-        return MenuBarModel(store: store, quiet: QuietMode(defaults: testDefaults.defaults), clock: { time }, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
+        return MenuBarModel(store: store, quiet: QuietMode(storage: InMemoryQuietStorage()), clock: { time }, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
     }
 
     @Test func rendersLabelAndDropdown() throws {

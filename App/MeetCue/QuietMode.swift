@@ -1,6 +1,30 @@
 import Foundation
 import Observation
 
+/// Where quiet mode keeps its state between launches.
+protocol QuietStorage: AnyObject {
+    var until: Date? { get set }
+    var preset: String? { get set }
+}
+
+final class UserDefaultsQuietStorage: QuietStorage {
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var until: Date? {
+        get { defaults.object(forKey: "quietUntil") as? Date }
+        set { defaults.set(newValue, forKey: "quietUntil") }
+    }
+
+    var preset: String? {
+        get { defaults.string(forKey: "quietPreset") }
+        set { defaults.set(newValue, forKey: "quietPreset") }
+    }
+}
+
 @MainActor
 @Observable
 final class QuietMode {
@@ -22,16 +46,13 @@ final class QuietMode {
 
     /// Nil when off; `.distantFuture` for "until I turn it off".
     private(set) var until: Date?
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let storage: QuietStorage
     /// The preset last turned on, so the status can say "until end of today" without guessing from the time.
     private(set) var preset: Preset?
-    private static let key = "quietUntil"
-    private static let presetKey = "quietPreset"
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        until = defaults.object(forKey: Self.key) as? Date
-        preset = defaults.string(forKey: Self.presetKey).flatMap(Preset.init(rawValue:))
+    init(storage: QuietStorage = UserDefaultsQuietStorage()) {
+        self.storage = storage
+        until = storage.until
+        preset = storage.preset.flatMap(Preset.init(rawValue:))
     }
 
     func turnOn(_ preset: Preset, now: Date, calendar: Calendar) {
@@ -44,15 +65,15 @@ final class QuietMode {
             until = .distantFuture
         }
         self.preset = preset
-        defaults.set(until, forKey: Self.key)
-        defaults.set(preset.rawValue, forKey: Self.presetKey)
+        storage.until = until
+        storage.preset = preset.rawValue
     }
 
     func turnOff() {
         until = nil
         preset = nil
-        defaults.removeObject(forKey: Self.key)
-        defaults.removeObject(forKey: Self.presetKey)
+        storage.until = nil
+        storage.preset = nil
     }
 
     func isOn(at now: Date) -> Bool {

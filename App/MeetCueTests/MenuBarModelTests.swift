@@ -6,11 +6,10 @@ import Testing
 @MainActor
 struct MenuBarModelTests {
     let source = FakeCalendarSource()
-    let testDefaults = TestDefaults()
     let quiet: QuietMode
 
     init() {
-        quiet = QuietMode(defaults: testDefaults.defaults)
+        quiet = QuietMode(storage: InMemoryQuietStorage())
     }
 
     func makeModel(at time: Date, locale: Locale = Locale(identifier: "en_US")) -> (MenuBarModel, (Date) -> Void) {
