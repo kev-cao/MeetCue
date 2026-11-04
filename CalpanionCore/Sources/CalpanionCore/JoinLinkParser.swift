@@ -36,12 +36,18 @@ public enum JoinLinkParser {
 
     private static func cleanLocation(_ location: String?, removing ranges: [NSRange]) -> String? {
         guard let location else { return nil }
-        let text = NSMutableString(string: location)
-        for range in ranges.sorted(by: { $0.location > $1.location }) {
-            text.replaceCharacters(in: range, with: "")
+        let text = location as NSString
+        var pieces: [String] = []
+        var cursor = 0
+        for range in ranges.sorted(by: { $0.location < $1.location }) {
+            pieces.append(text.substring(with: NSRange(location: cursor, length: range.location - cursor)))
+            cursor = NSMaxRange(range)
         }
-        let edges = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",;|·-"))
-        let cleaned = (text as String).trimmingCharacters(in: edges)
-        return cleaned.isEmpty ? nil : cleaned
+        pieces.append(text.substring(from: cursor))
+        let edges = ranges.isEmpty
+            ? CharacterSet.whitespacesAndNewlines
+            : CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",;|·-()<>[]"))
+        let kept = pieces.map { $0.trimmingCharacters(in: edges) }.filter { !$0.isEmpty }
+        return kept.isEmpty ? nil : kept.joined(separator: " · ")
     }
 }
