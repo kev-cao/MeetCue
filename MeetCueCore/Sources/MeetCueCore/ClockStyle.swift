@@ -5,6 +5,7 @@ public enum ClockStyle {
     /// macOS 24-hour time setting, so this is how the app follows it.
     public static func uses24Hour(_ locale: Locale) -> Bool {
         let format = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: locale) ?? ""
-        return format.contains("H") || format.contains("k")
+        let pattern = format.replacing(/'[^']*'/, with: "")
+        return pattern.contains("H") || pattern.contains("k")
     }
 }

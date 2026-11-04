@@ -79,7 +79,7 @@ public enum MenuBarText {
 
         let time: String
         if isLive {
-            time = "\(minutesRoundedUp(meeting.end.timeIntervalSince(now)))m left"
+            time = "\(shortDuration(minutes: minutesRoundedUp(meeting.end.timeIntervalSince(now)))) left"
         } else if withinHour {
             time = "in \(minutesRoundedUp(untilStart))m"
         } else {
@@ -104,11 +104,24 @@ public enum MenuBarText {
         max(1, Int((interval / 60).rounded(.up)))
     }
 
+    /// "45m", "2h" or "1h 20m".
+    static func shortDuration(minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes)m" }
+        return minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m"
+    }
+
+    /// "45 min", "2 hr" or "1 hr 20 min".
+    static func longDuration(minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes) min" }
+        return minutes % 60 == 0 ? "\(minutes / 60) hr" : "\(minutes / 60) hr \(minutes % 60) min"
+    }
+
     /// The dropdown's time line: "2:30 – 3:00 PM", plus "in 24 min" within the hour or "12 min left" during the meeting.
+    /// `meeting` is a timed meeting; `featured` never returns all-day events.
     public static func detail(for meeting: Meeting, now: Date, calendar: Calendar, uses24Hour: Bool) -> String {
         let range = timeRange(meeting.start, meeting.end, calendar: calendar, uses24Hour: uses24Hour)
         if meeting.start <= now && now < meeting.end {
-            return "\(range) · \(minutesRoundedUp(meeting.end.timeIntervalSince(now))) min left"
+            return "\(range) · \(longDuration(minutes: minutesRoundedUp(meeting.end.timeIntervalSince(now)))) left"
         }
         let untilStart = meeting.start.timeIntervalSince(now)
         if untilStart > 0 && untilStart <= hour {

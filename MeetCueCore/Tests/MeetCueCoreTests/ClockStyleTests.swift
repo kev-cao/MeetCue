@@ -10,4 +10,15 @@ struct ClockStyleTests {
         components.hourCycle = .zeroToTwentyThree
         #expect(ClockStyle.uses24Hour(Locale(components: components)) == true)
     }
+
+    @Test func recognizesOtherLocalesAndQuotedLiterals() {
+        #expect(ClockStyle.uses24Hour(Locale(identifier: "ja_JP")) == true)
+        #expect(ClockStyle.uses24Hour(Locale(identifier: "de_DE")) == true)
+        var zeroToEleven = Locale.Components(locale: Locale(identifier: "en_US"))
+        zeroToEleven.hourCycle = .zeroToEleven
+        #expect(ClockStyle.uses24Hour(Locale(components: zeroToEleven)) == false)
+        var oneToTwentyFour = Locale.Components(locale: Locale(identifier: "en_US"))
+        oneToTwentyFour.hourCycle = .oneToTwentyFour
+        #expect(ClockStyle.uses24Hour(Locale(components: oneToTwentyFour)) == true)
+    }
 }

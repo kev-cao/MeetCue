@@ -141,4 +141,25 @@ struct MenuBarTextTests {
         #expect(MenuBarText.detail(for: lunch, now: Fixtures.at(9, 0), calendar: Fixtures.calendar, uses24Hour: false) == "11:30 AM – 12:30 PM")
         #expect(MenuBarText.detail(for: sync, now: Fixtures.at(9, 0), calendar: Fixtures.calendar, uses24Hour: true) == "14:30 – 15:00")
     }
+
+    @Test func longLiveMeetingShowsHours() {
+        let focus = Fixtures.meeting("Focus", start: Fixtures.at(9, 0), minutes: 480, series: "f")
+        let detail = { (now: Date) in
+            MenuBarText.detail(for: focus, now: now, calendar: Fixtures.calendar, uses24Hour: false)
+        }
+        #expect(show([focus], at: Fixtures.at(9, 40)).time == "7h 20m left")
+        #expect(detail(Fixtures.at(9, 40)) == "9:00 AM – 5:00 PM · 7 hr 20 min left")
+        #expect(show([focus], at: Fixtures.at(16, 0)).time == "1h left")
+        #expect(detail(Fixtures.at(16, 0)).hasSuffix("· 1 hr left"))
+    }
+
+    @Test func detailBoundaries() {
+        let detail = { (now: Date) in
+            MenuBarText.detail(for: sync, now: now, calendar: Fixtures.calendar, uses24Hour: false)
+        }
+        #expect(detail(Fixtures.at(14, 30)) == "2:30 – 3:00 PM · 30 min left")
+        #expect(detail(Fixtures.at(15, 0)) == "2:30 – 3:00 PM")
+        #expect(detail(Fixtures.at(13, 30)) == "2:30 – 3:00 PM · in 60 min")
+        #expect(detail(Fixtures.at(13, 29)) == "2:30 – 3:00 PM")
+    }
 }
