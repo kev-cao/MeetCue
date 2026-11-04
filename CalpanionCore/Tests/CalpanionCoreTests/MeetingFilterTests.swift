@@ -14,9 +14,45 @@ struct MeetingFilterTests {
     @Test func sameOccurrenceOnTwoCalendarsAppearsOnce() {
         let mine = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "work")
         let shared = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "team")
-        let result = MeetingFilter.visible([mine, shared], filter: CalendarFilter())
+        let filter = CalendarFilter(alertOffCalendarIDs: ["team"])
+        for input in [[mine, shared], [shared, mine]] {
+            let result = MeetingFilter.visible(input, filter: filter)
+            #expect(result.count == 1)
+            #expect(result.first?.calendarID == "work")
+        }
+    }
+
+    @Test func hiddenCopyLeavesVisibleCopy() {
+        let hidden = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "work")
+        let shown = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "team")
+        let result = MeetingFilter.visible([hidden, shown], filter: CalendarFilter(hiddenCalendarIDs: ["work"]))
+        #expect(result.count == 1)
+        #expect(result.first?.calendarID == "team")
+    }
+
+    @Test func alertOnCopyWinsForAlerts() {
+        let shared = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "team")
+        let mine = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "work")
+        let result = MeetingFilter.alertable([shared, mine], filter: CalendarFilter(alertOffCalendarIDs: ["team"]))
         #expect(result.count == 1)
         #expect(result.first?.calendarID == "work")
+    }
+
+    @Test func acceptedCopyBeatsPendingCopy() {
+        let accepted = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "team", status: .accepted)
+        let pending = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "work", status: .pending)
+        for input in [[accepted, pending], [pending, accepted]] {
+            let result = MeetingFilter.visible(input, filter: CalendarFilter())
+            #expect(result.count == 1)
+            #expect(result.first?.calendarID == "team")
+        }
+    }
+
+    @Test func sameStartSortsByTitle() {
+        let beta = Fixtures.meeting("Beta", start: Fixtures.at(9, 0), series: "b")
+        let alpha = Fixtures.meeting("Alpha", start: Fixtures.at(9, 0), series: "a")
+        let result = MeetingFilter.visible([beta, alpha], filter: CalendarFilter())
+        #expect(result.map(\.title) == ["Alpha", "Beta"])
     }
 
     @Test func alertableDropsAllDayDeclinedAndAlertOffCalendars() {
