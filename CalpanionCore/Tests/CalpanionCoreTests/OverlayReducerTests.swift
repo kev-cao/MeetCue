@@ -38,6 +38,15 @@ struct OverlayReducerTests {
         Transition(from: .alert, event: .meetingEnded, to: .done),
         Transition(from: .done, event: .alertTime(quiet: false), to: .done),
         Transition(from: .waiting, event: .hide, to: .waiting),
+        Transition(from: .snoozed(until: snoozeEnd), event: .join, to: .notesCard),
+        Transition(from: .pill, event: .join, to: .notesCard),
+        Transition(from: .dismissed, event: .join, to: .notesCard),
+        Transition(from: .hidden, event: .join, to: .notesCard),
+        Transition(from: .notesCard, event: .join, to: .notesCard),
+        Transition(from: .pill, event: .dismiss(afterStart: true), to: .notesCard),
+        Transition(from: .pill, event: .meetingEnded, to: .done),
+        Transition(from: .done, event: .show, to: .notesCard),
+        Transition(from: .notesCard, event: .alertTime(quiet: false), to: .notesCard),
         ]
     }()
 
@@ -50,6 +59,8 @@ struct OverlayReducerTests {
         let policy = NotesPolicy(hasNotes: false)
         #expect(OverlayReducer.reduce(.alert, .join, notes: policy) == .done)
         #expect(OverlayReducer.reduce(.dismissed, .startTime, notes: policy) == .done)
+        #expect(OverlayReducer.reduce(.alert, .dismiss(afterStart: true), notes: policy) == .done)
+        #expect(OverlayReducer.reduce(.done, .show, notes: policy) == .done)
     }
 
     @Test func cardWithoutNotesWhenNotRequired() {
@@ -60,11 +71,14 @@ struct OverlayReducerTests {
     @Test func cardOffInSettings() {
         let policy = NotesPolicy(showAtStart: false, hasNotes: true)
         #expect(OverlayReducer.reduce(.dismissed, .startTime, notes: policy) == .done)
+        #expect(OverlayReducer.reduce(.alert, .join, notes: policy) == .notesCard)
+        #expect(OverlayReducer.reduce(.alert, .dismiss(afterStart: true), notes: policy) == .done)
     }
 
     @Test func cardStaysAfterEndWhenHideAtEndIsOff() {
         let policy = NotesPolicy(hideAtEnd: false, hasNotes: true)
         #expect(OverlayReducer.reduce(.notesCard, .meetingEnded, notes: policy) == .notesCard)
+        #expect(OverlayReducer.reduce(.hidden, .meetingEnded, notes: policy) == .hidden)
         #expect(OverlayReducer.reduce(.alert, .meetingEnded, notes: policy) == .done)
     }
 }

@@ -17,6 +17,7 @@ public enum OverlayEvent: Equatable, Sendable {
     case snoozeElapsed
     case moveToCorner
     case expand
+    /// `afterStart` is whether the meeting had started when the user dismissed it.
     case dismiss(afterStart: Bool)
     case join
     case startTime
@@ -39,14 +40,20 @@ public struct NotesPolicy: Equatable, Sendable {
         self.hasNotes = hasNotes
     }
 
-    var wantsCard: Bool { showAtStart && (hasNotes || !onlyWithNotes) }
+    /// Whether a card would have anything to show.
+    var hasCardContent: Bool { hasNotes || !onlyWithNotes }
+    /// Whether the card appears without the user asking for it.
+    var wantsCard: Bool { showAtStart && hasCardContent }
 }
 
 public enum OverlayReducer {
     /// The next state for one meeting. Events that don't apply leave the state unchanged.
     public static func reduce(_ state: OverlayState, _ event: OverlayEvent, notes: NotesPolicy) -> OverlayState {
         let cardOrDone: OverlayState = notes.wantsCard ? .notesCard : .done
+        let cardOnRequest: OverlayState = notes.hasCardContent ? .notesCard : .done
         switch (state, event) {
+        case (.done, .show):
+            return cardOnRequest
         case (.done, _):
             return .done
         case (.notesCard, .meetingEnded), (.hidden, .meetingEnded):
@@ -65,8 +72,8 @@ public enum OverlayReducer {
             return .alert
         case (.alert, .dismiss(let afterStart)), (.pill, .dismiss(let afterStart)):
             return afterStart ? cardOrDone : .dismissed
-        case (.waiting, .join), (.alert, .join), (.snoozed, .join), (.pill, .join), (.dismissed, .join):
-            return cardOrDone
+        case (.waiting, .join), (.alert, .join), (.snoozed, .join), (.pill, .join), (.dismissed, .join), (.hidden, .join):
+            return cardOnRequest
         case (.waiting, .startTime), (.pill, .startTime), (.dismissed, .startTime):
             return cardOrDone
         case (.notesCard, .hide):
