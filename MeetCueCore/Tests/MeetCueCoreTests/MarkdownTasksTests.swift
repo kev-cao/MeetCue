@@ -30,17 +30,22 @@ struct MarkdownTasksTests {
     }
 
     @Test func toggleChangesOnlyThatLine() {
-        let toggled = MarkdownTasks.toggle(note, line: 1)
+        let toggled = MarkdownTasks.toggle(note, line: 1, expectedText: "Move staging backups")
         var expected = note.components(separatedBy: "\n")
         expected[1] = "- [x] Move staging backups"
         #expect(toggled == expected.joined(separator: "\n"))
-        #expect(MarkdownTasks.toggle(toggled, line: 1) == note)
+        #expect(MarkdownTasks.toggle(toggled, line: 1, expectedText: "Move staging backups") == note)
     }
 
     @Test func toggleIgnoresNonTaskLines() {
-        #expect(MarkdownTasks.toggle(note, line: 0) == note)
-        #expect(MarkdownTasks.toggle(note, line: 8) == note)
-        #expect(MarkdownTasks.toggle(note, line: 99) == note)
+        #expect(MarkdownTasks.toggle(note, line: 0, expectedText: "Topics") == note)
+        #expect(MarkdownTasks.toggle(note, line: 8, expectedText: "inside a code block") == note)
+        #expect(MarkdownTasks.toggle(note, line: 99, expectedText: "Topics") == note)
+    }
+
+    @Test func toggleRequiresTheExpectedText() {
+        #expect(MarkdownTasks.toggle(note, line: 1, expectedText: "Review alert thresholds") == note)
+        #expect(MarkdownTasks.toggle("- [ ] a <!-- carried:2026-10-28 -->", line: 0, expectedText: "a") == "- [x] a <!-- carried:2026-10-28 -->")
     }
 
     @Test func appendTopic() {
@@ -59,9 +64,9 @@ struct MarkdownTasksTests {
 
     @Test func crlfToggleRoundTrips() {
         let original = "- [ ] a\r\n- [x] b\r\n"
-        let toggled = MarkdownTasks.toggle(original, line: 0)
+        let toggled = MarkdownTasks.toggle(original, line: 0, expectedText: "a")
         #expect(toggled == "- [x] a\r\n- [x] b\r\n")
-        #expect(MarkdownTasks.toggle(toggled, line: 0) == original)
+        #expect(MarkdownTasks.toggle(toggled, line: 0, expectedText: "a") == original)
     }
 
     @Test func tildeLineInsideBacktickFenceDoesNotClose() {

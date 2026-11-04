@@ -16,9 +16,10 @@ public enum MarkdownTasks {
         scan(markdown).items
     }
 
-    /// Flips the checkbox on `line`. Returns the text unchanged if that line isn't a task item.
-    public static func toggle(_ markdown: String, line index: Int) -> String {
-        guard items(in: markdown).contains(where: { $0.line == index }) else { return markdown }
+    /// Flips the checkbox on `line`. Returns the text unchanged unless that line is a task item whose
+    /// text is `expectedText`, so a stale line number can't tick a different topic.
+    public static func toggle(_ markdown: String, line index: Int, expectedText: String) -> String {
+        guard items(in: markdown).contains(where: { $0.line == index && $0.text == expectedText }) else { return markdown }
         var lines = markdown.components(separatedBy: "\n")
         guard let parts = matchTask(lines[index]) else { return markdown }
         let mark = parts.mark == " " ? "x" : " "
