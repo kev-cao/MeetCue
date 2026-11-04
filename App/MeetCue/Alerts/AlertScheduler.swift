@@ -6,6 +6,8 @@ import Observation
 @MainActor
 final class AlertScheduler {
     private let model: OverlayModel
+    /// Runs after every refresh, so work due at meeting ends, like carrying notes over, runs on time.
+    var onRefresh: (@MainActor () -> Void)?
     private var timer: Timer?
     private var activity: NSObjectProtocol?
 
@@ -22,6 +24,7 @@ final class AlertScheduler {
     func refresh() {
         model.refresh()
         apply(model.schedule)
+        onRefresh?()
     }
 
     /// The timer is re-armed on every refresh, not only when the wake date changes, because a

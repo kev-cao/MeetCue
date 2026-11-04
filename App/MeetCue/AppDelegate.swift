@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -6,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var alertScheduler: AlertScheduler?
     private var overlayController: OverlayController?
     private var notes: NoteStore?
+    private var calendarWindow: CalendarWindowController?
+    private var hotKeys: GlobalHotKeys?
     private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -17,11 +20,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.notes = notes
         let model = MenuBarModel(store: store, quiet: quiet, notes: notes)
         let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts())
+        let visibility = CalendarVisibility(store: store)
+        let calendarWindow = CalendarWindowController(model: CalendarWindowModel(store: store, notes: notes, visibility: visibility))
+        self.calendarWindow = calendarWindow
+        let carrier = NoteCarrier(notes: notes, store: store)
         let scheduler = AlertScheduler(model: overlays)
+        scheduler.onRefresh = { carrier.run(now: Date()) }
         alertScheduler = scheduler
-        overlayController = OverlayController(model: overlays, openMeeting: { _ in })
+        overlayController = OverlayController(model: overlays, openMeeting: { calendarWindow.show(selecting: $0) })
+        let hotKeys = GlobalHotKeys()
+        hotKeys.register(keyCode: kVK_ANSI_N) { overlays.toggleNotesCard() }
+        hotKeys.register(keyCode: kVK_ANSI_O) { calendarWindow.show() }
+        self.hotKeys = hotKeys
         statusItem = StatusItemController(model: model) { dismiss in
-            DropdownView(model: model, dismiss: dismiss, overlays: overlays, simulateMeeting: { overlays.simulateMeeting() })
+            DropdownView(
+                model: model,
+                dismiss: dismiss,
+                overlays: overlays,
+                openMeetCue: { calendarWindow.show() },
+                simulateMeeting: { overlays.simulateMeeting() }
+            )
         }
         observeSystemChanges {
             store.refresh()

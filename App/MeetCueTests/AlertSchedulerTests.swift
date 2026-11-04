@@ -40,6 +40,16 @@ struct AlertSchedulerTests {
         #expect(await eventually { model.alertMeetings.count == 1 })
     }
 
+    @Test func runsTheRefreshHookAfterEveryRefresh() {
+        let (_, model) = makeModel { AppFixtures.at(14, 0) }
+        let scheduler = AlertScheduler(model: model)
+        var refreshes = 0
+        scheduler.onRefresh = { refreshes += 1 }
+        scheduler.start()
+        scheduler.refresh()
+        #expect(refreshes == 2)
+    }
+
     @Test func settlesWhenTheTimerFires() async {
         let (store, model) = makeModel(clock: Date.init)
         source.snapshots = [AppFixtures.event(start: Date().addingTimeInterval(AlertTiming.standard.leadTime + 1.5))]
