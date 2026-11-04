@@ -16,13 +16,16 @@ struct MarqueeText: View {
     private static let gap: CGFloat = 24
 
     var body: some View {
-        if text.count <= visibleCharacters {
-            Text(text)
-        } else if scrolls && !reduceMotion {
-            scrolling
-        } else {
-            Text(String(text.prefix(visibleCharacters)) + "…")
+        Group {
+            if text.count <= visibleCharacters {
+                Text(text)
+            } else if scrolls && !reduceMotion {
+                scrolling
+            } else {
+                Text(String(text.prefix(visibleCharacters)) + "…")
+            }
         }
+        .font(Font(font as CTFont))
     }
 
     private var scrolling: some View {
@@ -34,6 +37,7 @@ struct MarqueeText: View {
             HStack(spacing: Self.gap) {
                 Text(text)
                 Text(text)
+                    .accessibilityHidden(true)
             }
             .fixedSize()
             .offset(x: offset)

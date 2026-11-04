@@ -86,7 +86,7 @@ private struct AccessPrompt: View {
                         NSWorkspace.shared.open(url)
                     }
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.bordered)
             }
         }
     }

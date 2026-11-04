@@ -55,6 +55,15 @@ final class MenuBarModel {
         MenuBarText.display(meetings: store.meetings, now: now, quiet: quiet.isOn(at: now), settings: settings, calendar: calendar)
     }
 
+    /// What VoiceOver reads for the status item.
+    var accessibilityLabel: String {
+        if needsAccess { return "MeetCue, calendar access needed" }
+        let quietSuffix = quiet.isOn(at: now) ? ", quiet mode on" : ""
+        guard let meeting = featured, let time = display.time else { return "MeetCue, no more meetings today" + quietSuffix }
+        let lead = meeting.start <= now ? "Now" : "Next"
+        return "MeetCue, \(lead): \(meeting.title), \(time)" + quietSuffix
+    }
+
     func detail(for meeting: Meeting) -> String {
         MenuBarText.detail(for: meeting, now: now, calendar: calendar, uses24Hour: settings.uses24HourClock)
     }

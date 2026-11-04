@@ -22,6 +22,12 @@ final class StatusItemController: NSObject {
 
         if let button = statusItem.button {
             button.addSubview(label)
+            label.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+                label.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            ])
+            label.setAccessibilityElement(false)
             button.target = self
             button.action = #selector(togglePopover)
         }
@@ -32,16 +38,21 @@ final class StatusItemController: NSObject {
 
         resize()
         trackSize()
-        ticker = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.model.tick() }
         }
+        // The .common mode keeps the timer firing while a menu tracks events.
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
     }
 
     private func resize() {
-        let size = label.fittingSize
-        let height = statusItem.button?.bounds.height ?? size.height
-        label.frame = NSRect(x: 0, y: (height - size.height) / 2, width: size.width, height: size.height)
-        statusItem.length = size.width
+        label.layoutSubtreeIfNeeded()
+        let width = label.fittingSize.width
+        if statusItem.length != width {
+            statusItem.length = width
+        }
+        statusItem.button?.setAccessibilityLabel(model.accessibilityLabel)
     }
 
     /// The label's width changes with its text, and the status item doesn't size itself to a subview.
@@ -49,6 +60,7 @@ final class StatusItemController: NSObject {
         withObservationTracking {
             _ = model.display
             _ = model.needsAccess
+            _ = model.accessibilityLabel
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.resize()

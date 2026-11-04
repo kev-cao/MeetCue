@@ -68,6 +68,20 @@ struct MenuBarModelTests {
         #expect(model.display.time == "14:30")
     }
 
+    @Test func accessibilityLabelDescribesTheMeeting() {
+        let (model, setTime) = makeModel(at: AppFixtures.at(14, 6))
+        #expect(model.accessibilityLabel == "MeetCue, Next: Team Sync, in 24m")
+        setTime(AppFixtures.at(14, 48))
+        #expect(model.accessibilityLabel == "MeetCue, Now: Team Sync, 12m left")
+        setTime(AppFixtures.at(17, 10))
+        model.setQuiet(.untilTurnedOff)
+        #expect(model.accessibilityLabel == "MeetCue, no more meetings today, quiet mode on")
+
+        source.access = .denied
+        let (denied, _) = makeModel(at: AppFixtures.at(14, 6))
+        #expect(denied.accessibilityLabel == "MeetCue, calendar access needed")
+    }
+
     @Test func needsAccessWhenNotGranted() {
         source.access = .denied
         let (model, _) = makeModel(at: AppFixtures.at(13, 0))
