@@ -6,7 +6,12 @@ import Testing
 @MainActor
 struct MenuBarModelTests {
     let source = FakeCalendarSource()
-    let quiet = QuietMode(defaults: AppFixtures.isolatedDefaults())
+    let testDefaults = TestDefaults()
+    let quiet: QuietMode
+
+    init() {
+        quiet = QuietMode(defaults: testDefaults.defaults)
+    }
 
     func makeModel(at time: Date, locale: Locale = Locale(identifier: "en_US")) -> (MenuBarModel, (Date) -> Void) {
         var current = time
@@ -30,13 +35,32 @@ struct MenuBarModelTests {
 
     @Test func quietModeShowsTheMoon() {
         let (model, _) = makeModel(at: AppFixtures.at(13, 6))
-        quiet.turnOn(.oneHour, now: AppFixtures.at(13, 6), calendar: AppFixtures.calendar)
+        model.setQuiet(.oneHour)
         #expect(model.display.icon == .quiet)
         #expect(model.quietStatus == "Quiet until 2:06 PM")
-        quiet.turnOn(.endOfToday, now: AppFixtures.at(13, 6), calendar: AppFixtures.calendar)
+        model.setQuiet(.endOfToday)
         #expect(model.quietStatus == "Quiet until end of today")
-        quiet.turnOff()
+        model.setQuiet(nil)
         #expect(model.quietStatus == "Quiet mode: Off")
+    }
+
+    @Test func oneHourAt11PMIsNotEndOfToday() {
+        let (model, _) = makeModel(at: AppFixtures.at(23, 0))
+        model.setQuiet(.oneHour)
+        #expect(model.quietStatus == "Quiet until 12:00 AM")
+    }
+
+    @Test func quietStatusAfterExpiry() {
+        let (model, setTime) = makeModel(at: AppFixtures.at(13, 6))
+        model.setQuiet(.oneHour)
+        setTime(AppFixtures.at(14, 6))
+        #expect(model.quietStatus == "Quiet mode: Off")
+    }
+
+    @Test func untilTurnedOffStatus() {
+        let (model, _) = makeModel(at: AppFixtures.at(13, 6))
+        model.setQuiet(.untilTurnedOff)
+        #expect(model.quietStatus == "Quiet until you turn it off")
     }
 
     @Test func followsThe24HourSetting() {

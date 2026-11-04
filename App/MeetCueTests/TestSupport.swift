@@ -32,9 +32,19 @@ enum AppFixtures {
             myStatus: status
         )
     }
+}
 
-    static func isolatedDefaults() -> UserDefaults {
-        UserDefaults(suiteName: "MeetCueTests-\(UUID().uuidString)")!
+/// UserDefaults in a suite of its own, removed when the test that holds it ends.
+final class TestDefaults {
+    let defaults: UserDefaults
+    private let suiteName = "MeetCueTests-\(UUID().uuidString)"
+
+    init() {
+        defaults = UserDefaults(suiteName: suiteName)!
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
 }
 

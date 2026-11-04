@@ -8,7 +8,7 @@ final class MenuBarModel {
     let store: MeetingStore
     let quiet: QuietMode
     private(set) var now: Date
-    @ObservationIgnored let calendar: Calendar
+    @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let clock: () -> Date
 
@@ -29,6 +29,16 @@ final class MenuBarModel {
 
     func tick() {
         now = clock()
+    }
+
+    /// Turns quiet mode on with `preset`, or off for nil, measured from the current time.
+    func setQuiet(_ preset: QuietMode.Preset?) {
+        tick()
+        if let preset {
+            quiet.turnOn(preset, now: now, calendar: calendar)
+        } else {
+            quiet.turnOff()
+        }
     }
 
     var needsAccess: Bool { store.access != .granted }
@@ -52,8 +62,7 @@ final class MenuBarModel {
     var quietStatus: String {
         guard quiet.isOn(at: now), let until = quiet.until else { return "Quiet mode: Off" }
         if until == .distantFuture { return "Quiet until you turn it off" }
-        let parts = calendar.dateComponents([.hour, .minute], from: until)
-        if parts.hour == 0 && parts.minute == 0 { return "Quiet until end of today" }
+        if quiet.preset == .endOfToday { return "Quiet until end of today" }
         return "Quiet until \(MenuBarText.clockTime(until, calendar: calendar, uses24Hour: settings.uses24HourClock))"
     }
 }

@@ -4,10 +4,10 @@ import Testing
 
 @MainActor
 struct QuietModeTests {
-    let defaults = AppFixtures.isolatedDefaults()
+    let testDefaults = TestDefaults()
 
     @Test func durations() {
-        let quiet = QuietMode(defaults: defaults)
+        let quiet = QuietMode(defaults: testDefaults.defaults)
         quiet.turnOn(.oneHour, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
         #expect(quiet.until == AppFixtures.at(14, 0))
         quiet.turnOn(.endOfToday, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
@@ -17,17 +17,20 @@ struct QuietModeTests {
     }
 
     @Test func expires() {
-        let quiet = QuietMode(defaults: defaults)
+        let quiet = QuietMode(defaults: testDefaults.defaults)
         quiet.turnOn(.oneHour, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
         #expect(quiet.isOn(at: AppFixtures.at(13, 59)))
         #expect(!quiet.isOn(at: AppFixtures.at(14, 0)))
     }
 
     @Test func persistsAcrossLaunchesUntilTurnedOff() {
-        QuietMode(defaults: defaults).turnOn(.untilTurnedOff, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
-        let relaunched = QuietMode(defaults: defaults)
+        QuietMode(defaults: testDefaults.defaults).turnOn(.untilTurnedOff, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        let relaunched = QuietMode(defaults: testDefaults.defaults)
         #expect(relaunched.until == .distantFuture)
+        #expect(relaunched.preset == .untilTurnedOff)
         relaunched.turnOff()
-        #expect(QuietMode(defaults: defaults).until == nil)
+        let afterOff = QuietMode(defaults: testDefaults.defaults)
+        #expect(afterOff.until == nil)
+        #expect(afterOff.preset == nil)
     }
 }
