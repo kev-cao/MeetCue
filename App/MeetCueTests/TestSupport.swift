@@ -48,6 +48,7 @@ final class FakeCalendarSource: CalendarSource {
     var access: CalendarAccess = .granted
     var accessAfterRequest: CalendarAccess = .granted
     var snapshots: [EventSnapshot] = []
+    var calendarList: [CalendarInfo] = []
     var onChange: (@MainActor () -> Void)?
     private(set) var requestedRange: (start: Date, end: Date)?
 
@@ -60,6 +61,8 @@ final class FakeCalendarSource: CalendarSource {
         requestedRange = (start, end)
         return snapshots.filter { $0.start < end && $0.end > start }
     }
+
+    func calendars() -> [CalendarInfo] { calendarList }
 }
 
 /// Fails the first `failures` saves, then saves into memory.

@@ -1,3 +1,4 @@
+import CoreGraphics
 import EventKit
 import MeetCueCore
 
@@ -33,6 +34,26 @@ final class EventKitSource: CalendarSource {
         if !hasReadWithAccess { store.reset(); hasReadWithAccess = true }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
         return store.events(matching: predicate).filter { $0.status != .canceled }.map(Self.snapshot)
+    }
+
+    func calendars() -> [CalendarInfo] {
+        guard access == .granted else { return [] }
+        return store.calendars(for: .event).map { calendar in
+            CalendarInfo(
+                id: calendar.calendarIdentifier,
+                title: calendar.title,
+                account: calendar.source?.title ?? "Other",
+                color: Self.color(calendar.cgColor)
+            )
+        }
+    }
+
+    private static func color(_ color: CGColor?) -> CalendarColor {
+        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let components = color?.converted(to: srgb, intent: .defaultIntent, options: nil)?.components,
+              components.count >= 3
+        else { return .gray }
+        return CalendarColor(red: components[0], green: components[1], blue: components[2])
     }
 
     private static func snapshot(of event: EKEvent) -> EventSnapshot {

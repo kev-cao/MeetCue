@@ -85,4 +85,34 @@ struct MeetingStoreTests {
         source.onChange?()
         #expect(store.meetings.map(\.title) == ["Team Sync"])
     }
+
+    @Test func queriesAnyRangeWithTheFilter() {
+        source.snapshots = [
+            AppFixtures.event(start: AppFixtures.at(14, 30)),
+            AppFixtures.event("Next week", start: AppFixtures.at(10, 0, day: 11), series: "n"),
+            AppFixtures.event("Declined", start: AppFixtures.at(11, 0, day: 11), series: "d", status: .declined),
+        ]
+        let store = makeStore()
+        #expect(store.meetings(from: AppFixtures.at(0, 0, day: 8), to: AppFixtures.at(0, 0, day: 15)).map(\.title) == ["Next week"])
+        let everything = store.meetings(from: AppFixtures.at(0, 0, day: 8), to: AppFixtures.at(0, 0, day: 15), filter: CalendarFilter(skipDeclined: false))
+        #expect(everything.map(\.title) == ["Next week", "Declined"])
+        store.filter = CalendarFilter(hiddenCalendarIDs: ["work"])
+        #expect(store.meetings(from: AppFixtures.at(0, 0, day: 8), to: AppFixtures.at(0, 0, day: 15)).isEmpty)
+    }
+
+    @Test func refreshListsCalendarsAndCountsRevisions() {
+        let work = CalendarInfo(id: "work", title: "Work", account: "iCloud", color: .gray)
+        source.calendarList = [work]
+        let store = makeStore()
+        #expect(store.calendars.isEmpty)
+        store.refresh()
+        #expect(store.calendars == [work])
+        let revision = store.revision
+        store.refresh()
+        #expect(store.revision == revision + 1)
+        source.access = .denied
+        store.refresh()
+        #expect(store.calendars.isEmpty)
+        #expect(store.meetings(from: AppFixtures.at(0, 0), to: AppFixtures.at(0, 0, day: 5)).isEmpty)
+    }
 }

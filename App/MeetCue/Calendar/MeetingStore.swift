@@ -8,6 +8,9 @@ final class MeetingStore {
     private(set) var access: CalendarAccess
     /// Today's and tomorrow's meetings from `MeetingFilter.relevant`, so the menu bar can look past midnight.
     private(set) var meetings: [Meeting] = []
+    private(set) var calendars: [CalendarInfo] = []
+    /// Goes up on every refresh, so views that query other date ranges know to query again.
+    private(set) var revision = 0
     var filter = CalendarFilter() {
         didSet { refresh() }
     }
@@ -30,14 +33,24 @@ final class MeetingStore {
     }
 
     func refresh() {
+        defer { revision += 1 }
         access = source.access
         guard access == .granted else {
             meetings = []
+            calendars = []
             return
         }
         let start = calendar.startOfDay(for: now())
         guard let end = calendar.date(byAdding: .day, value: 2, to: start) else { return }
+        meetings = meetings(from: start, to: end)
+        calendars = source.calendars()
+    }
+
+    /// Relevant meetings overlapping `start..<end`, read from the calendars now. Uses the store's
+    /// filter unless given another.
+    func meetings(from start: Date, to end: Date, filter: CalendarFilter? = nil) -> [Meeting] {
+        guard source.access == .granted else { return [] }
         let all = source.events(from: start, to: end).map(MeetingMapper.meeting(from:))
-        meetings = MeetingFilter.relevant(all, filter: filter)
+        return MeetingFilter.relevant(all, filter: filter ?? self.filter)
     }
 }
