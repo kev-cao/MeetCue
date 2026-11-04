@@ -144,6 +144,12 @@ struct OverlaySnapshotTests {
         #expect(longer.height == long.height)
     }
 
+    @Test func cornerPanelsStackDownFromTheMenuBar() {
+        let visible = NSRect(x: 0, y: 0, width: 1440, height: 875)
+        let frame = CornerPanel<EmptyView>.cornerFrame(size: CGSize(width: 392, height: 300), below: 80, in: visible)
+        #expect(frame == NSRect(x: 1048, y: 495, width: 392, height: 300))
+    }
+
     static let cardSize = CGSize(width: 720, height: 520)
     static let cornerSize = CGSize(width: 720, height: 260)
 

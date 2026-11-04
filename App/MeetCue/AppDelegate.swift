@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts())
         let scheduler = AlertScheduler(model: overlays)
         alertScheduler = scheduler
-        overlayController = OverlayController(model: overlays)
+        overlayController = OverlayController(model: overlays, openMeeting: { _ in })
         statusItem = StatusItemController(model: model) { dismiss in
             DropdownView(model: model, dismiss: dismiss, simulateMeeting: { overlays.simulateMeeting() })
         }

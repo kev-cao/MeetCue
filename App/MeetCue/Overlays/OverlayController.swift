@@ -1,13 +1,17 @@
 import AppKit
+import MeetCueCore
 import Observation
 
 /// Shows and hides the overlay panels to match `OverlayModel`. Each overlay surface gets one
-/// `sync` method; the notes card will add another `CornerPanel` and its own `sync`.
+/// `sync` method. The notes card sits in the same corner as the pills, below them.
 @MainActor
 final class OverlayController {
     private let model: OverlayModel
     private var alertPanels: [AlertPanel] = []
     private let pillPanel: CornerPanel<PillStack>
+    private var cardPanel: CornerPanel<NotesCardStack>!
+    /// The card's size as last laid out, margins included.
+    private var cardSize = CGSize(width: NotesCardContent.width + 2 * NotesCardContent.margin, height: 240)
     private var keyMonitor: Any?
     private var screenObserver: NSObjectProtocol?
     private var activationObserver: NSObjectProtocol?
@@ -32,9 +36,12 @@ final class OverlayController {
         }
     }
 
-    init(model: OverlayModel) {
+    init(model: OverlayModel, openMeeting: @escaping @MainActor (Meeting) -> Void) {
         self.model = model
         pillPanel = CornerPanel(rootView: PillStack(model: model))
+        cardPanel = CornerPanel(rootView: NotesCardStack(model: model, open: openMeeting) { [weak self] size in
+            self?.cardSizeChanged(size)
+        })
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -49,6 +56,7 @@ final class OverlayController {
             _ = model.alertMeetings
             _ = model.pillMeetings
             _ = model.notice
+            _ = model.notesCardMeeting
         } onChange: { [weak self] in
             Task { @MainActor in self?.track() }
         }
@@ -58,6 +66,7 @@ final class OverlayController {
     private func sync() {
         syncAlert()
         syncPill()
+        syncNotesCard()
     }
 
     private func syncAlert() {
@@ -134,6 +143,7 @@ final class OverlayController {
         closeAlert()
         syncAlert()
         syncPill()
+        syncNotesCard()
     }
 
     private func syncPill() {
@@ -144,5 +154,28 @@ final class OverlayController {
             pillPanel.place(size: PillStackContent.size(rows: rows))
             pillPanel.orderFrontRegardless()
         }
+    }
+
+    private func syncNotesCard() {
+        if model.notesCardMeeting == nil {
+            cardPanel.orderOut(nil)
+        } else {
+            placeNotesCard()
+            cardPanel.orderFrontRegardless()
+        }
+    }
+
+    private func cardSizeChanged(_ size: CGSize) {
+        guard size != cardSize, size.width > 0, size.height > 0 else { return }
+        cardSize = size
+        if cardPanel.isVisible { placeNotesCard() }
+    }
+
+    /// Below the pills when they show, with the pills' spacing between the visible shapes.
+    private func placeNotesCard() {
+        let pillsHeight = pillPanel.isVisible
+            ? pillPanel.frame.height - PillStackContent.margin - NotesCardContent.margin + PillStackContent.spacing
+            : 0
+        cardPanel.place(size: cardSize, below: pillsHeight)
     }
 }

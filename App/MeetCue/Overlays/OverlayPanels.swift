@@ -33,7 +33,7 @@ final class AlertPanel: OverlayPanel {
     override var canBecomeKey: Bool { true }
 }
 
-/// The pill stack in the top-right corner of the main screen. It never takes focus.
+/// The pill stack or the notes card in the top-right corner of the main screen. It never takes focus.
 final class CornerPanel<Content: View>: OverlayPanel {
     private let hostingView: FirstClickHostingView<Content>
 
@@ -48,11 +48,14 @@ final class CornerPanel<Content: View>: OverlayPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// Pins the panel below the menu bar at the right edge of the screen with the menu bar.
-    func place(size: CGSize) {
+    /// Pins the panel `offset` points below the menu bar at the right edge of the screen with the menu bar.
+    func place(size: CGSize, below offset: CGFloat = 0) {
         guard let screen = NSScreen.screens.first else { return }
-        let visible = screen.visibleFrame
-        setFrame(NSRect(x: visible.maxX - size.width, y: visible.maxY - size.height, width: size.width, height: size.height), display: true)
+        setFrame(Self.cornerFrame(size: size, below: offset, in: screen.visibleFrame), display: true)
+    }
+
+    static func cornerFrame(size: CGSize, below offset: CGFloat, in visible: NSRect) -> NSRect {
+        NSRect(x: visible.maxX - size.width, y: visible.maxY - offset - size.height, width: size.width, height: size.height)
     }
 }
 
