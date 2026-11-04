@@ -145,6 +145,24 @@ final class OverlayModelTests {
         #expect(model.state(of: syncID) == .done)
     }
 
+    @Test func joiningFromOutsideTheOverlays() {
+        let model = makeModel()
+        model.join(store.meetings[0])
+        #expect(opened == [URL(string: "https://acme.zoom.us/j/1")!])
+        #expect(model.state(of: syncID) == .done)
+        let elsewhere = Meeting(
+            id: OccurrenceID(seriesKey: "elsewhere", originalDate: nil),
+            title: "Elsewhere",
+            start: AppFixtures.at(16, 0),
+            end: AppFixtures.at(16, 30),
+            joinLink: JoinLink(url: URL(string: "https://meet.google.com/abc-defg-hij")!, service: .meet),
+            calendarID: "work"
+        )
+        model.join(elsewhere)
+        #expect(opened.last == URL(string: "https://meet.google.com/abc-defg-hij")!)
+        #expect(model.state(of: elsewhere.id) == nil)
+    }
+
     @Test func returnJoinsAndEscapeDismisses() {
         let model = makeModel()
         at(AppFixtures.at(14, 28), model)

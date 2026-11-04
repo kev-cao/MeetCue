@@ -17,7 +17,7 @@ struct SnapshotTests {
         ]
         let store = MeetingStore(source: source, now: { time }, calendar: AppFixtures.calendar)
         store.refresh()
-        return MenuBarModel(store: store, quiet: QuietMode(storage: InMemoryQuietStorage()), notes: notes, clock: { time }, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
+        return MenuBarModel(store: store, quiet: QuietMode(storage: InMemoryQuietStorage()), notes: notes, settings: AppSettings(storage: InMemorySettingsStorage()), clock: { time }, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
     }
 
     @Test func rendersLabelAndDropdown() throws {

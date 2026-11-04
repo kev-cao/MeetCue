@@ -8,6 +8,7 @@ final class MenuBarModel {
     let store: MeetingStore
     let quiet: QuietMode
     let notes: NoteStore
+    let settings: AppSettings
     private(set) var now: Date
     /// Set when the dropdown opens with Option held, to reveal "Simulate meeting in 2 minutes".
     var showsSimulateItem = false
@@ -19,6 +20,7 @@ final class MenuBarModel {
         store: MeetingStore,
         quiet: QuietMode,
         notes: NoteStore,
+        settings: AppSettings,
         clock: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
         locale: Locale = .autoupdatingCurrent
@@ -26,6 +28,7 @@ final class MenuBarModel {
         self.store = store
         self.quiet = quiet
         self.notes = notes
+        self.settings = settings
         self.clock = clock
         self.calendar = calendar
         self.locale = locale
@@ -48,16 +51,26 @@ final class MenuBarModel {
 
     var needsAccess: Bool { store.access != .granted }
 
-    var settings: MenuBarSettings {
-        MenuBarSettings(uses24HourClock: ClockStyle.uses24Hour(locale))
+    var menuBarSettings: MenuBarSettings {
+        MenuBarSettings(
+            content: settings.menuBarContent,
+            titleLength: settings.titleLength,
+            scroll: settings.titleScroll,
+            uses24HourClock: ClockStyle.uses24Hour(locale)
+        )
     }
 
     var featured: Meeting? {
         MenuBarText.featured(in: store.meetings, now: now, calendar: calendar)
     }
 
+    /// The meeting ⌥⌘J joins: the featured one, when it has a video link.
+    var joinTarget: Meeting? {
+        featured.flatMap { $0.joinLink == nil ? nil : $0 }
+    }
+
     var display: MenuBarDisplay {
-        MenuBarText.display(meetings: store.meetings, now: now, quiet: quiet.isOn(at: now), settings: settings, calendar: calendar)
+        MenuBarText.display(meetings: store.meetings, now: now, quiet: quiet.isOn(at: now), settings: menuBarSettings, calendar: calendar)
     }
 
     /// What VoiceOver reads for the status item.
@@ -69,7 +82,7 @@ final class MenuBarModel {
         let countdown = detail(for: meeting).components(separatedBy: " · ")
         let when = countdown.count > 1
             ? countdown[1]
-            : "at " + MenuBarText.clockTime(meeting.start, calendar: calendar, uses24Hour: settings.uses24HourClock)
+            : "at " + MenuBarText.clockTime(meeting.start, calendar: calendar, uses24Hour: menuBarSettings.uses24HourClock)
         return "MeetCue, \(lead): \(meeting.title), \(when)" + quietSuffix
     }
 
@@ -83,13 +96,13 @@ final class MenuBarModel {
     func isLive(_ meeting: Meeting) -> Bool { meeting.start <= now && now < meeting.end }
 
     func detail(for meeting: Meeting) -> String {
-        MenuBarText.detail(for: meeting, now: now, calendar: calendar, uses24Hour: settings.uses24HourClock)
+        MenuBarText.detail(for: meeting, now: now, calendar: calendar, uses24Hour: menuBarSettings.uses24HourClock)
     }
 
     var quietStatus: String {
         guard quiet.isOn(at: now), let until = quiet.until else { return "Quiet mode: Off" }
         if until == .distantFuture { return "Quiet until you turn it off" }
         if quiet.preset == .endOfToday { return "Quiet until end of today" }
-        return "Quiet until \(MenuBarText.clockTime(until, calendar: calendar, uses24Hour: settings.uses24HourClock))"
+        return "Quiet until \(MenuBarText.clockTime(until, calendar: calendar, uses24Hour: menuBarSettings.uses24HourClock))"
     }
 }

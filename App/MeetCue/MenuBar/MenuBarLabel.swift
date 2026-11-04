@@ -15,7 +15,7 @@ struct MenuBarLabel: View {
             }
             if let title = display.title {
                 Text("·")
-                MarqueeText(text: title, visibleCharacters: model.settings.titleLength, scrolls: display.scrollsTitle, font: Self.font)
+                MarqueeText(text: title, visibleCharacters: model.menuBarSettings.titleLength, scrolls: display.scrollsTitle, font: Self.font)
             }
         }
         .font(Font(Self.font as CTFont))

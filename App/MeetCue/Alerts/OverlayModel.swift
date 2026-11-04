@@ -132,6 +132,16 @@ final class OverlayModel {
         apply(to: [meeting] + others) { $0.id == id ? .join : .dismiss(afterStart: now >= $0.start) }
     }
 
+    /// Joins `meeting` from outside the overlays, as ⌥⌘J does: like the alert's Join when the
+    /// overlays track the meeting, or by opening its link.
+    func join(_ meeting: Meeting) {
+        if entries[meeting.id] != nil {
+            join(meeting.id)
+        } else if let link = meeting.joinLink {
+            openURL(link.url)
+        }
+    }
+
     /// ↩ on the alert joins the first meeting with a video link, or dismisses when none has one.
     func pressReturn() {
         if let meeting = alertMeetings.first(where: { $0.joinLink != nil }) {

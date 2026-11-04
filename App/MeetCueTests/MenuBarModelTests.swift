@@ -8,6 +8,7 @@ struct MenuBarModelTests {
     let source = FakeCalendarSource()
     let quiet: QuietMode
     let notes = NoteStore(repository: FlakyNoteRepository(), saveDelay: .seconds(60))
+    let settings = AppSettings(storage: InMemorySettingsStorage())
 
     init() {
         quiet = QuietMode(storage: InMemoryQuietStorage())
@@ -18,7 +19,7 @@ struct MenuBarModelTests {
         let store = MeetingStore(source: source, now: { current }, calendar: AppFixtures.calendar)
         source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30), location: "Room 4B · https://meet.google.com/abc")]
         store.refresh()
-        let model = MenuBarModel(store: store, quiet: quiet, notes: notes, clock: { current }, calendar: AppFixtures.calendar, locale: locale)
+        let model = MenuBarModel(store: store, quiet: quiet, notes: notes, settings: settings, clock: { current }, calendar: AppFixtures.calendar, locale: locale)
         return (model, { current = $0; model.tick() })
     }
 
@@ -76,6 +77,38 @@ struct MenuBarModelTests {
         let (model, _) = makeModel(at: AppFixtures.at(13, 6))
         model.setQuiet(.untilTurnedOff)
         #expect(model.quietStatus == "Quiet until you turn it off")
+    }
+
+    @Test func menuBarTextFollowsTheSettings() {
+        let (model, setTime) = makeModel(at: AppFixtures.at(14, 6))
+        settings.menuBarContent = .timeOnly
+        #expect(model.display.time == "in 24m")
+        #expect(model.display.title == nil)
+        settings.menuBarContent = .iconOnly
+        #expect(model.display.time == nil)
+        #expect(model.display.icon == .calendar)
+        settings.menuBarContent = .timeAndTitle
+        settings.titleLength = 8
+        #expect(model.menuBarSettings.titleLength == 8)
+        #expect(model.display.scrollsTitle)
+        settings.titleScroll = .never
+        #expect(!model.display.scrollsTitle)
+        settings.titleScroll = .nearMeetings
+        setTime(AppFixtures.at(13, 6))
+        #expect(!model.display.scrollsTitle)
+        settings.titleScroll = .always
+        #expect(model.display.scrollsTitle)
+        settings.titleLength = 10
+        #expect(!model.display.scrollsTitle)
+    }
+
+    @Test func joinTargetIsTheFeaturedMeetingWithAVideoLink() {
+        let (model, _) = makeModel(at: AppFixtures.at(14, 6))
+        #expect(model.joinTarget?.title == "Team Sync")
+        source.snapshots = [AppFixtures.event("Lunch", start: AppFixtures.at(14, 30), location: "Cafeteria")]
+        model.store.refresh()
+        #expect(model.featured?.title == "Lunch")
+        #expect(model.joinTarget == nil)
     }
 
     @Test func followsThe24HourSetting() {

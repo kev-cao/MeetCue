@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = AppSettings()
         let notes = NoteStore(repository: Self.noteRepository())
         self.notes = notes
-        let model = MenuBarModel(store: store, quiet: quiet, notes: notes)
+        let model = MenuBarModel(store: store, quiet: quiet, notes: notes, settings: settings)
         let overlays = OverlayModel(store: store, quiet: quiet, notes: notes, dismissed: DismissedAlerts(), settings: settings)
         let visibility = CalendarVisibility(store: store)
         let calendarWindow = CalendarWindowController(model: CalendarWindowModel(store: store, notes: notes, visibility: visibility))
@@ -32,6 +32,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hotKeys = GlobalHotKeys()
         hotKeys.register(keyCode: kVK_ANSI_N) { overlays.toggleNotesCard() }
         hotKeys.register(keyCode: kVK_ANSI_O) { calendarWindow.show() }
+        hotKeys.register(keyCode: kVK_ANSI_J) {
+            model.tick()
+            if let meeting = model.joinTarget { overlays.join(meeting) }
+        }
         self.hotKeys = hotKeys
         statusItem = StatusItemController(model: model) { dismiss in
             DropdownView(
