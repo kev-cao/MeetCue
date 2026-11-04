@@ -141,6 +141,40 @@ struct NoteStoreTests {
         #expect(repository.saved[existing.occurrenceID] == existing)
     }
 
+    func storedNote(_ markdown: String, carriedForward: Bool = false) -> Note {
+        Note(occurrenceID: sync.id.storageKey, seriesKey: "series-1", occurrenceStart: sync.start, markdown: markdown, updatedAt: .now, carriedForward: carriedForward)
+    }
+
+    @Test func editsMadeBeforeTheFirstLoadAreAddedAfterTheStoredText() {
+        let repository = FlakyNoteRepository(loadFailures: 2, notes: [storedNote("Agenda")])
+        let store = makeStore(repository)
+        store.setMarkdown("- [ ] Budget", for: sync)
+        #expect(!store.isStorageAvailable)
+        store.appendTopic("Hiring", to: sync)
+        #expect(store.isStorageAvailable)
+        #expect(store.markdown(for: sync.id) == "Agenda\n- [ ] Budget\n- [ ] Hiring")
+        store.flush()
+        #expect(repository.saved[sync.id.storageKey]?.markdown == "Agenda\n- [ ] Budget\n- [ ] Hiring")
+    }
+
+    @Test func mergedNotesUseTheStoredLineEndingAndKeepCarriedForward() throws {
+        let repository = FlakyNoteRepository(loadFailures: 2, notes: [storedNote("Agenda\r\n- [ ] A", carriedForward: true)])
+        let store = makeStore(repository)
+        store.setMarkdown("New", for: sync)
+        store.setMarkdown("New!", for: sync)
+        #expect(store.markdown(for: sync.id) == "Agenda\r\n- [ ] A\r\nNew!")
+        #expect(try #require(store.note(for: sync.id)).carriedForward)
+    }
+
+    @Test func mergingSkipsTheSeparatorForBlankText() {
+        let repository = FlakyNoteRepository(loadFailures: 2, notes: [storedNote("  ")])
+        let store = makeStore(repository)
+        store.setMarkdown("New", for: sync)
+        store.setMarkdown("New!", for: sync)
+        #expect(store.markdown(for: sync.id) == "  New!")
+        #expect(store.hasNotes(sync.id))
+    }
+
     @Test func unavailableStorageIsReportedFromTheStart() {
         let store = makeStore(UnavailableNoteRepository())
         #expect(!store.isStorageAvailable)

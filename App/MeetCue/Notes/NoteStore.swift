@@ -8,7 +8,8 @@ import Observation
 ///
 /// When the notes can't be loaded, nothing is saved, so existing records are never written over.
 /// `isStorageAvailable` is false until a load succeeds, which is tried again on each change; the
-/// edits made meanwhile stay in memory and are saved with the loaded notes.
+/// edits made meanwhile stay in memory and, once a load succeeds, are added after the stored text
+/// of the same note.
 @MainActor
 @Observable
 final class NoteStore {
@@ -138,14 +139,29 @@ final class NoteStore {
         scheduleSave(after: max(.zero, min(saveDelay, now.duration(to: oldest + maxSaveDelay))))
     }
 
-    /// Notes edited in memory before the load succeeded win over the loaded ones.
     private func loadIfNeeded() {
         guard !isStorageAvailable, let loaded = try? repository.loadAll() else { return }
-        for note in loaded where notes[note.occurrenceID] == nil {
-            notes[note.occurrenceID] = note
-            trackText(of: note)
+        for stored in loaded {
+            let key = stored.occurrenceID
+            guard var edited = notes[key] else {
+                notes[key] = stored
+                trackText(of: stored)
+                continue
+            }
+            // The in-memory text was typed on an empty note, so it goes after the stored text.
+            edited.markdown = Self.join(stored.markdown, edited.markdown)
+            edited.carriedForward = edited.carriedForward || stored.carriedForward
+            notes[key] = edited
+            trackText(of: edited)
+            unsaved.insert(key)
         }
         isStorageAvailable = true
+    }
+
+    private static func join(_ stored: String, _ edited: String) -> String {
+        func isBlank(_ text: String) -> Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if isBlank(stored) || isBlank(edited) { return stored + edited }
+        return stored + (stored.contains("\r\n") ? "\r\n" : "\n") + edited
     }
 
     private func scheduleSave(after delay: Duration) {

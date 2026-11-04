@@ -18,26 +18,34 @@ final class NoteCarrier {
     private let notes: NoteStore
     private let store: MeetingStore
     private let calendar: Calendar
-    /// Occurrences already handled this session. One whose next occurrence wasn't found is tried
-    /// again at the next launch.
+    /// Occurrences already handled since the calendar last changed. One whose next occurrence
+    /// wasn't found is tried again after the next calendar change or launch.
     private var attempted: Set<String> = []
+    private var seenRevision: Int
 
     init(notes: NoteStore, store: MeetingStore, calendar: Calendar = .autoupdatingCurrent) {
         self.notes = notes
         self.store = store
         self.calendar = calendar
+        seenRevision = store.revision
     }
 
     /// Carries every pending note whose occurrence has ended by `now`. A target that has itself
     /// ended gets its turn in the same run, so topics reach the next occurrence still to come.
     func run(now: Date) {
-        guard store.access == .granted else { return }
+        guard store.access == .granted, notes.isStorageAvailable else { return }
+        if store.revision != seenRevision {
+            seenRevision = store.revision
+            attempted = []
+        }
         let pending = notes.pendingCarryOvers(startedBefore: now)
+        guard pending.contains(where: { !attempted.contains($0.occurrenceID) }) else { return }
         guard let earliest = pending.first, let latest = pending.last else { return }
         // Notes created during the run start before `now`, so `now` bounds every later search.
         let from = calendar.date(byAdding: .day, value: -1, to: earliest.occurrenceStart)!
         let to = calendar.date(byAdding: .day, value: Self.searchDays, to: max(latest.occurrenceStart, now))!
-        // Declined occurrences are skipped, so topics go to one I'll attend.
+        // The default filter keeps hidden and alert-off calendars, since the next occurrence may be on
+        // one, and drops declined occurrences so topics go to one the user will attend.
         let all = store.meetings(from: from, to: to, filter: CalendarFilter())
         var waiting: Set<String> = []
         while let source = notes.pendingCarryOvers(startedBefore: now)

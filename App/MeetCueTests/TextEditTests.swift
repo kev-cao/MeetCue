@@ -77,4 +77,35 @@ struct TextEditTests {
         guard let change else { return text }
         return (text as NSString).replacingCharacters(in: change.range, with: change.replacement)
     }
+
+    @Test func mergeKeepsAnOutsideAppendWhileTypingInTheMiddle() {
+        let base = "- [ ] A\n- [ ] B"
+        let mine = "- [ ] Axy\n- [ ] B"
+        let theirs = "- [ ] A\n- [ ] B\n- [ ] C"
+        #expect(TextEdit.merge(base: base, mine: mine, theirs: theirs) == "- [ ] Axy\n- [ ] B\n- [ ] C")
+    }
+
+    @Test func mergeKeepsATickBeforeTheUsersEdit() {
+        let base = "- [ ] A\n- [ ] B"
+        let mine = "- [ ] A\n- [ ] Bxy"
+        let theirs = "- [x] A\n- [ ] B"
+        #expect(TextEdit.merge(base: base, mine: mine, theirs: theirs) == "- [x] A\n- [ ] Bxy")
+    }
+
+    @Test func mergeKeepsAnOutsideChangeAfterTheUsersEdit() {
+        let base = "one two three"
+        #expect(TextEdit.merge(base: base, mine: "one 2 three", theirs: "one two THREE") == "one 2 THREE")
+    }
+
+    @Test func mergeReturnsNilWhenTheEditsOverlap() {
+        let base = "- [ ] A"
+        #expect(TextEdit.merge(base: base, mine: "- [ ] Ab", theirs: "- [ ] Ac") == nil)
+        #expect(TextEdit.merge(base: base, mine: "- [ ] B", theirs: "- [x] A") != nil)
+        #expect(TextEdit.merge(base: "abcdef", mine: "abXef", theirs: "abcYf") == nil)
+    }
+
+    @Test func mergeWithOneSideUnchangedReturnsTheOther() {
+        #expect(TextEdit.merge(base: "a", mine: "a", theirs: "ab") == "ab")
+        #expect(TextEdit.merge(base: "a", mine: "ab", theirs: "a") == "ab")
+    }
 }

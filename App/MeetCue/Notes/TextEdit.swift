@@ -25,6 +25,22 @@ enum TextEdit {
         return Change(range: NSRange(location: prefix, length: old.count - prefix - suffix), replacement: replacement)
     }
 
+    /// `mine` with the outside edit that turned `base` into `theirs` applied as well, or nil when the
+    /// two edits touch the same text, in which case `mine` should win.
+    static func merge(base: String, mine: String, theirs: String) -> String? {
+        guard let mineChange = minimalChange(from: base, to: mine) else { return theirs }
+        guard let theirChange = minimalChange(from: base, to: theirs) else { return mine }
+        let (a, b) = (mineChange.range, theirChange.range)
+        let bothInsertAtOnePoint = a.length == 0 && b.length == 0 && a.location == b.location
+        if bothInsertAtOnePoint || (a.location < NSMaxRange(b) && b.location < NSMaxRange(a)) { return nil }
+        let merged = NSMutableString(string: base)
+        // Applying the later edit first keeps the earlier one's range valid.
+        for change in [mineChange, theirChange].sorted(by: { NSMaxRange($0.range) > NSMaxRange($1.range) }) {
+            merged.replaceCharacters(in: change.range, with: change.replacement)
+        }
+        return merged as String
+    }
+
     /// Where `selection` lands once `change` has been applied: positions before it stay, positions
     /// after it shift, and positions inside it move to its end.
     static func selection(_ selection: NSRange, through change: Change, newLength: Int) -> NSRange {

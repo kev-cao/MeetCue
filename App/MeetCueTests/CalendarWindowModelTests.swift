@@ -227,6 +227,20 @@ struct CalendarWindowModelTests {
         #expect(model.isToday(today))
     }
 
+    @Test func hoursFollowTheWallClockOnDaylightSavingDays() {
+        let model = makeModel()
+        func date(_ day: Int, _ hour: Int) -> Date {
+            AppFixtures.calendar.date(from: DateComponents(year: 2026, month: 3, day: day, hour: hour))!
+        }
+        let springForward = date(8, 0)
+        #expect(model.hours(of: date(8, 10), on: springForward) == 10)
+        #expect(model.hours(of: date(8, 23), on: springForward) == 23)
+        #expect(model.hours(of: date(9, 0), on: springForward) == 24)
+        #expect(model.hours(of: date(7, 20), on: springForward) == 0)
+        let fallBack = AppFixtures.calendar.date(from: DateComponents(year: 2026, month: 11, day: 1))!
+        #expect(model.hours(of: AppFixtures.calendar.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 10))!, on: fallBack) == 10)
+    }
+
     @Test func inspectorText() {
         source.snapshots = [EventSnapshot(
             seriesKey: "s", title: "Team Sync", start: AppFixtures.at(14, 30), end: AppFixtures.at(15, 0),

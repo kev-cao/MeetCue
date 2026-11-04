@@ -109,7 +109,6 @@ private struct JoinButtonStyle: ButtonStyle {
 private struct NotesEditor: View {
     let model: CalendarWindowModel
     let meeting: Meeting
-    @State private var topic = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -143,22 +142,7 @@ private struct NotesEditor: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                TextField("Add a topic", text: $topic)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .onSubmit {
-                        model.addTopic(topic, to: meeting)
-                        topic = ""
-                    }
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 36)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
+            TopicField(model: model, meeting: meeting)
             if !model.notes.isStorageAvailable {
                 Label("Notes can't be saved right now.", systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 12, weight: .medium))
@@ -173,5 +157,31 @@ private struct NotesEditor: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// Holds the draft in its own view so typing doesn't re-evaluate the notes preview.
+private struct TopicField: View {
+    let model: CalendarWindowModel
+    let meeting: Meeting
+    @State private var topic = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            TextField("Add a topic", text: $topic)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .onSubmit {
+                    model.addTopic(topic, to: meeting)
+                    topic = ""
+                }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 36)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
     }
 }

@@ -65,14 +65,14 @@ private struct CalendarToolbar: View {
                 Button("Previous", systemImage: "chevron.left") { model.step(-1) }
                     .labelStyle(.iconOnly)
                     .buttonStyle(ToolbarCapsuleStyle())
-                    .keyboardShortcut(.leftArrow, modifiers: .command)
+                    .keyboardShortcut("[", modifiers: .command)
                 Button("Today") { model.goToToday() }
                     .buttonStyle(ToolbarCapsuleStyle())
                     .keyboardShortcut("t", modifiers: .command)
                 Button("Next", systemImage: "chevron.right") { model.step(1) }
                     .labelStyle(.iconOnly)
                     .buttonStyle(ToolbarCapsuleStyle())
-                    .keyboardShortcut(.rightArrow, modifiers: .command)
+                    .keyboardShortcut("]", modifiers: .command)
             }
         }
         .padding(.horizontal, 20)

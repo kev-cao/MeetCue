@@ -134,4 +134,39 @@ struct NoteCarrierTests {
         carrier.run(now: AppFixtures.at(9, 0))
         #expect(source.queries - before == 1)
     }
+
+    @Test func doesNothingWhileStorageIsUnavailable() {
+        let unavailable = NoteStore(repository: FlakyNoteRepository(loadFailures: 100), saveDelay: .seconds(60))
+        source.snapshots = [weekly(day: 4), weekly(day: 11)]
+        unavailable.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
+        let carrier = NoteCarrier(notes: unavailable, store: MeetingStore(source: source, calendar: AppFixtures.calendar), calendar: AppFixtures.calendar)
+        let before = source.queries
+        carrier.run(now: AppFixtures.at(15, 0))
+        #expect(!unavailable.hasNotes(meeting(weekly(day: 11)).id))
+        #expect(unavailable.note(for: meeting(weekly(day: 4)).id)?.carriedForward == false)
+        #expect(source.queries == before)
+    }
+
+    @Test func aCalendarChangeLetsAnOccurrenceWithoutASuccessorTryAgain() {
+        source.snapshots = [weekly(day: 4)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
+        let store = MeetingStore(source: source, calendar: AppFixtures.calendar)
+        let carrier = makeCarrier(store: store)
+        carrier.run(now: AppFixtures.at(15, 0))
+        #expect(!notes.hasNotes(meeting(weekly(day: 11)).id))
+        source.snapshots = [weekly(day: 4), weekly(day: 11)]
+        store.refresh()
+        carrier.run(now: AppFixtures.at(15, 0))
+        #expect(notes.markdown(for: meeting(weekly(day: 11)).id) == "- [ ] Budget <!-- carried:2026-11-04 -->")
+    }
+
+    @Test func aRunWithOnlyAttemptedNotesDoesNotReadTheCalendar() {
+        source.snapshots = [weekly(day: 4)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
+        let carrier = makeCarrier()
+        carrier.run(now: AppFixtures.at(15, 0))
+        let before = source.queries
+        carrier.run(now: AppFixtures.at(15, 1))
+        #expect(source.queries == before)
+    }
 }

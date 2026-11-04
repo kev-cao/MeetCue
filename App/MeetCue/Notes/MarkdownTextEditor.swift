@@ -8,7 +8,7 @@ struct MarkdownTextEditor: NSViewRepresentable {
 
     static let font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
 
-    func makeCoordinator() -> Coordinator { Coordinator(onChange: onChange, hasMarkers: Self.mayHaveMarkers(text)) }
+    func makeCoordinator() -> Coordinator { Coordinator(text: text, onChange: onChange) }
 
     static func mayHaveMarkers(_ text: String) -> Bool { text.contains("carried:") }
 
@@ -35,8 +35,12 @@ struct MarkdownTextEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.onChange = onChange
-        guard let textView = scrollView.documentView as? NSTextView, !textView.hasMarkedText() else { return }
-        context.coordinator.apply(text, to: textView)
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        if textView.hasMarkedText() {
+            context.coordinator.hold(text)
+        } else {
+            context.coordinator.apply(text, to: textView)
+        }
     }
 
     static func dimMarkers(in textView: NSTextView) {
@@ -55,17 +59,30 @@ struct MarkdownTextEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var onChange: @MainActor (String) -> Void
         private var hasMarkers: Bool
+        /// The text last applied from outside or written back, which `pending` and the user's edits
+        /// are measured against.
+        private var base: String
+        /// An outside text that arrived during an input-method composition, merged in once it commits.
+        private var pending: String?
 
-        init(onChange: @escaping @MainActor (String) -> Void, hasMarkers: Bool) {
+        init(text: String, onChange: @escaping @MainActor (String) -> Void) {
             self.onChange = onChange
-            self.hasMarkers = hasMarkers
+            hasMarkers = MarkdownTextEditor.mayHaveMarkers(text)
+            base = text
+        }
+
+        func hold(_ text: String) {
+            pending = text
         }
 
         /// Replaces only the part of the text that differs, through the text system, so the
         /// selection, scroll position and undo history stay with what the user was doing.
         func apply(_ text: String, to textView: NSTextView) {
+            pending = nil
+            defer { base = textView.string }
             guard let change = TextEdit.minimalChange(from: textView.string, to: text) else { return }
             let selection = textView.selectedRange()
+            textView.breakUndoCoalescing()
             guard textView.shouldChangeText(in: change.range, replacementString: change.replacement) else { return }
             textView.textStorage?.replaceCharacters(in: change.range, with: change.replacement)
             textView.didChangeText()
@@ -74,9 +91,16 @@ struct MarkdownTextEditor: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView, !textView.hasMarkedText() else { return }
+            if let outside = pending {
+                pending = nil
+                if let merged = TextEdit.merge(base: base, mine: textView.string, theirs: outside) {
+                    apply(merged, to: textView)
+                }
+            }
             let hadMarkers = hasMarkers
             hasMarkers = MarkdownTextEditor.mayHaveMarkers(textView.string)
             if hadMarkers || hasMarkers { MarkdownTextEditor.dimMarkers(in: textView) }
+            base = textView.string
             onChange(textView.string)
         }
     }

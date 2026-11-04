@@ -174,9 +174,14 @@ final class CalendarWindowModel {
 
     func hasNotes(_ meeting: Meeting) -> Bool { notes.hasNotes(meeting.id) }
 
-    /// Hours since the start of `day`, so a grid can place `date` on it.
+    /// The wall-clock hour of `date` on `day`, from 0 to 24, so a grid can place it on the day. A day
+    /// that gains or loses an hour still has hour labels from 0 to 24, so elapsed time would misplace it.
     func hours(of date: Date, on day: Date) -> Double {
-        date.timeIntervalSince(calendar.startOfDay(for: day)) / 3600
+        let start = calendar.startOfDay(for: day)
+        if date < start { return 0 }
+        if date >= calendar.date(byAdding: .day, value: 1, to: start)! { return 24 }
+        let time = calendar.dateComponents([.hour, .minute, .second], from: date)
+        return Double(time.hour!) + Double(time.minute!) / 60 + Double(time.second!) / 3600
     }
 
     private func overlaps(_ meeting: Meeting, _ day: Date) -> Bool {
