@@ -132,7 +132,7 @@ public enum MenuBarText {
     }
 
     /// "2:30 – 3:00 PM", "11:30 AM – 12:30 PM", or "14:30 – 15:00".
-    static func timeRange(_ start: Date, _ end: Date, calendar: Calendar, uses24Hour: Bool) -> String {
+    public static func timeRange(_ start: Date, _ end: Date, calendar: Calendar, uses24Hour: Bool) -> String {
         let from = clockTime(start, calendar: calendar, uses24Hour: uses24Hour)
         let to = clockTime(end, calendar: calendar, uses24Hour: uses24Hour)
         if !uses24Hour && from.suffix(2) == to.suffix(2) {
