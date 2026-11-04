@@ -118,3 +118,10 @@ func eventually(timeout: Duration = .seconds(2.5), _ condition: () -> Bool) asyn
 final class InMemoryHiddenCalendarStorage: HiddenCalendarStorage {
     var hiddenCalendarIDs: Set<String> = []
 }
+
+final class InMemorySettingsStorage: SettingsStorage {
+    var values: [String: Any] = [:]
+
+    func object(forKey key: String) -> Any? { values[key] }
+    func set(_ value: Any?, forKey key: String) { values[key] = value }
+}

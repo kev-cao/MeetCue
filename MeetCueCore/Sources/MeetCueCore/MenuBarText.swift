@@ -1,8 +1,9 @@
 import Foundation
 
 public struct MenuBarSettings: Sendable, Equatable {
-    public enum Content: Sendable { case timeAndTitle, timeOnly, iconOnly }
-    public enum Scroll: Sendable { case always, nearMeetings, never }
+    // The app saves these raw values in its settings, so they must stay the same.
+    public enum Content: String, Sendable, CaseIterable { case timeAndTitle, timeOnly, iconOnly }
+    public enum Scroll: String, Sendable, CaseIterable { case always, nearMeetings, never }
 
     public var content: Content
     /// Characters of the title shown at once, counted as Swift `Character`s (grapheme clusters), not display width; longer titles may scroll.
