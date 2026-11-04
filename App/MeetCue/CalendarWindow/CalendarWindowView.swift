@@ -29,8 +29,23 @@ struct CalendarWindowView: View {
                 .overlay(alignment: .leading) { Rectangle().fill(Color.primary.opacity(0.08)).frame(width: 1) }
         }
         .background(Color(nsColor: .textBackgroundColor))
+        .background { MidnightWatcher(model: model) }
         .ignoresSafeArea()
         .frame(minWidth: 1000, minHeight: 640)
+    }
+}
+
+/// Tells the model when the day changes, so a view of today follows it past midnight.
+private struct MidnightWatcher: View {
+    let model: CalendarWindowModel
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            Color.clear
+                .onChange(of: context.date) { model.dayDidChange() }
+        }
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
     }
 }
 

@@ -45,6 +45,9 @@ final class CalendarWindowModel {
     @ObservationIgnored let calendar: Calendar
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let openURL: @MainActor (URL) -> Void
+    @ObservationIgnored private var isTracking = false
+    @ObservationIgnored private var loadedRevision = -1
+    @ObservationIgnored private var today: Date
 
     init(
         store: MeetingStore,
@@ -62,25 +65,35 @@ final class CalendarWindowModel {
         self.calendar = calendar
         self.locale = locale
         self.openURL = openURL
-        anchor = calendar.startOfDay(for: clock())
+        let today = calendar.startOfDay(for: clock())
+        anchor = today
+        self.today = today
     }
 
     func currentTime() -> Date { clock() }
 
     /// Reloads whenever the store refreshes, which it does when the calendars change.
     func startTracking() {
+        guard !isTracking else { return }
+        isTracking = true
+        track()
+        reload()
+    }
+
+    private func track() {
         withObservationTracking {
             _ = store.revision
         } onChange: { [weak self] in
             Task { @MainActor in
-                self?.reload()
-                self?.startTracking()
+                guard let self else { return }
+                if self.store.revision != self.loadedRevision { self.reload() }
+                self.track()
             }
         }
-        reload()
     }
 
     func reload() {
+        loadedRevision = store.revision
         let interval = CalendarGrid.interval(mode, containing: anchor, calendar: calendar)
         meetings = store.meetings(from: interval.start, to: interval.end)
         guard let current = selected else { return }
@@ -90,6 +103,15 @@ final class CalendarWindowModel {
             // Gone from a day on screen: deleted, declined, or on a calendar just hidden.
             selected = nil
         }
+    }
+
+    /// Moves a view that shows today on to the new day once midnight passes.
+    func dayDidChange() {
+        let now = calendar.startOfDay(for: clock())
+        guard now != today else { return }
+        if anchor == today { anchor = now }
+        today = now
+        reload()
     }
 
     // MARK: Navigation
@@ -126,6 +148,15 @@ final class CalendarWindowModel {
     }
 
     // MARK: Grid
+
+    /// "Wednesday, November 4".
+    func dayLabel(_ day: Date) -> String { format(day, Date.FormatStyle().weekday(.wide).month(.wide).day()) }
+
+    /// "Wednesday, November 4, 3 events", for VoiceOver.
+    func columnLabel(for day: Date) -> String {
+        let count = timedMeetings(on: day).count
+        return "\(dayLabel(day)), \(count == 0 ? "no events" : count == 1 ? "1 event" : "\(count) events")"
+    }
 
     func isToday(_ day: Date) -> Bool { calendar.isDate(day, inSameDayAs: clock()) }
 

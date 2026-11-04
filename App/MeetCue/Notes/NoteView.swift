@@ -5,21 +5,28 @@ import SwiftUI
 struct NoteView: View {
     private let blocks: [NoteBlock]
     private let fontSize: CGFloat
+    private let isSelectable: Bool
     private let toggle: (_ line: Int, _ text: String) -> Void
 
-    init(markdown: String, fontSize: CGFloat = 14, toggle: @escaping (_ line: Int, _ text: String) -> Void) {
+    init(markdown: String, fontSize: CGFloat = 14, isSelectable: Bool = false, toggle: @escaping (_ line: Int, _ text: String) -> Void) {
         blocks = NoteDocument.blocks(from: markdown)
         self.fontSize = fontSize
+        self.isSelectable = isSelectable
         self.toggle = toggle
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let stack = VStack(alignment: .leading, spacing: 10) {
             ForEach(blocks) { block in
                 NoteBlockView(block: block, fontSize: fontSize, toggle: toggle)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        if isSelectable {
+            stack.textSelection(.enabled)
+        } else {
+            stack
+        }
     }
 }
 

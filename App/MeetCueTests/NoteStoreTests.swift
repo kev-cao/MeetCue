@@ -1,7 +1,12 @@
 import Foundation
 import MeetCueCore
+import Observation
 import Testing
 @testable import MeetCue
+
+private final class FlagBox: @unchecked Sendable {
+    var value = false
+}
 
 @MainActor
 struct NoteStoreTests {
@@ -45,6 +50,21 @@ struct NoteStoreTests {
         let store = makeStore(FlakyNoteRepository(notes: [note]))
         #expect(store.markdown(for: sync.id) == "Agenda")
         #expect(store.hasNotes(sync.id))
+    }
+
+    @Test func typingInANoteInvalidatesNoHasNotesReaders() {
+        let store = makeStore(FlakyNoteRepository())
+        store.setMarkdown("- [ ] B", for: sync)
+        let invalidated = FlagBox()
+        withObservationTracking {
+            _ = store.hasNotes(sync.id)
+        } onChange: {
+            invalidated.value = true
+        }
+        store.setMarkdown("- [ ] Bu", for: sync)
+        #expect(!invalidated.value)
+        store.setMarkdown("", for: sync)
+        #expect(invalidated.value)
     }
 
     @Test func aFailedSaveKeepsTheTextAndRetries() async {

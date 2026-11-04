@@ -133,7 +133,7 @@ private struct NotesEditor: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     } else {
                         ScrollView {
-                            NoteView(markdown: markdown) { model.toggleTask(line: $0, text: $1, for: meeting) }
+                            NoteView(markdown: markdown, isSelectable: true) { model.toggleTask(line: $0, text: $1, for: meeting) }
                                 .padding(.trailing, 4)
                         }
                     }

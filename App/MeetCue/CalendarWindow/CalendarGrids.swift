@@ -66,24 +66,27 @@ private struct DayHeader: View {
     let day: Date
 
     var body: some View {
-        let today = model.isToday(day)
-        Button {
-            model.go(to: day, mode: .day)
-        } label: {
-            HStack(spacing: 6) {
-                Text(model.weekdayLabel(day))
-                    .foregroundStyle(today ? Color.red : Color.secondary)
-                Text(model.dayNumber(day))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(today ? Color.white : Color.primary)
-                    .frame(minWidth: 24, minHeight: 24)
-                    .background { if today { Circle().fill(Color.red) } }
+        TimelineView(.everyMinute) { _ in
+            let today = model.isToday(day)
+            Button {
+                model.go(to: day, mode: .day)
+            } label: {
+                HStack(spacing: 6) {
+                    Text(model.weekdayLabel(day))
+                        .foregroundStyle(today ? Color.red : Color.secondary)
+                    Text(model.dayNumber(day))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(today ? Color.white : Color.primary)
+                        .frame(minWidth: 24, minHeight: 24)
+                        .background { if today { Circle().fill(Color.red) } }
+                }
+                .font(.system(size: 13))
+                .monospacedDigit()
+                .contentShape(Rectangle())
             }
-            .font(.system(size: 13))
-            .monospacedDigit()
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.dayLabel(day))
         }
-        .buttonStyle(.plain)
     }
 }
 
@@ -137,20 +140,45 @@ private struct DayColumn: View {
                         .frame(width: columnWidth - 2)
                         .offset(x: 3 + CGFloat(placed.column) * columnWidth, y: CGFloat(start) * TimeGrid.hourHeight + 1)
                 }
-                if model.isToday(day) {
-                    let now = model.hours(of: model.currentTime(), on: day)
-                    ZStack(alignment: .leading) {
-                        Rectangle().fill(Color.red).frame(height: 2)
-                        Circle().fill(Color.red).frame(width: 8, height: 8).offset(x: -4)
-                    }
-                    .offset(y: CGFloat(now) * TimeGrid.hourHeight - 1)
-                    .accessibilityHidden(true)
-                }
+                NowLine(model: model, day: day)
             }
         }
         .frame(height: height)
-        .background(model.isToday(day) ? Color.accentColor.opacity(0.035) : .clear)
+        .background { TodayTint(model: model, day: day) }
         .overlay(alignment: .leading) { Rectangle().fill(Color.primary.opacity(0.07)).frame(width: 1) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(model.columnLabel(for: day))
+    }
+}
+
+private struct TodayTint: View {
+    let model: CalendarWindowModel
+    let day: Date
+
+    var body: some View {
+        TimelineView(.everyMinute) { _ in
+            if model.isToday(day) { Color.accentColor.opacity(0.035) }
+        }
+    }
+}
+
+/// The red line at the current time, on today's column only.
+private struct NowLine: View {
+    let model: CalendarWindowModel
+    let day: Date
+
+    var body: some View {
+        TimelineView(.everyMinute) { _ in
+            if model.isToday(day) {
+                let now = model.hours(of: model.currentTime(), on: day)
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(Color.red).frame(height: 2)
+                    Circle().fill(Color.red).frame(width: 8, height: 8).offset(x: -4)
+                }
+                .offset(y: CGFloat(now) * TimeGrid.hourHeight - 1)
+                .accessibilityHidden(true)
+            }
+        }
     }
 }
 
@@ -234,10 +262,27 @@ private struct AllDayChip: View {
     }
 }
 
-/// The month view: every week of the month, up to three meetings a day.
-struct MonthGrid: View {
-    static let visibleMeetings = 3
+/// How many meetings a month cell has room for.
+enum MonthLayout {
+    static let padding: CGFloat = 4
+    static let dayNumberHeight: CGFloat = 22
+    static let rowHeight: CGFloat = 18
+    static let moreHeight: CGFloat = 15
+    static let spacing: CGFloat = 2
 
+    /// The number of rows to show in a cell `height` tall holding `total` meetings, leaving room
+    /// for the "N more" line when some are left out.
+    static func visibleCount(total: Int, height: CGFloat) -> Int {
+        let free = height - 2 * padding - dayNumberHeight - spacing
+        func rows(in space: CGFloat) -> Int { max(0, Int(((space + spacing) / (rowHeight + spacing)).rounded(.down))) }
+        let all = rows(in: free)
+        if total <= all { return total }
+        return min(total, rows(in: free - moreHeight - spacing))
+    }
+}
+
+/// The month view: every week of the month, as many meetings a day as fit.
+struct MonthGrid: View {
     let model: CalendarWindowModel
 
     var body: some View {
@@ -273,52 +318,77 @@ private struct MonthCell: View {
 
     var body: some View {
         let meetings = model.allDayMeetings(on: day) + model.timedMeetings(on: day)
-        let today = model.isToday(day)
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Spacer()
-                Button {
-                    model.go(to: day, mode: .day)
-                } label: {
-                    Text(model.dayNumber(day))
-                        .font(.system(size: 12, weight: today ? .bold : .regular))
-                        .monospacedDigit()
-                        .foregroundStyle(today ? Color.white : model.isInAnchorMonth(day) ? Color.primary : Color.secondary)
-                        .frame(minWidth: 22, minHeight: 22)
-                        .background { if today { Circle().fill(Color.red) } }
+        GeometryReader { geometry in
+            let shown = MonthLayout.visibleCount(total: meetings.count, height: geometry.size.height)
+            VStack(alignment: .leading, spacing: MonthLayout.spacing) {
+                HStack {
+                    Spacer()
+                    DayNumberButton(model: model, day: day)
                 }
-                .buttonStyle(.plain)
-            }
-            ForEach(meetings.prefix(MonthGrid.visibleMeetings)) { meeting in
-                Button {
-                    model.select(meeting)
-                } label: {
-                    HStack(spacing: 4) {
-                        Circle().fill(Color(model.color(for: meeting))).frame(width: 6, height: 6)
-                        Text(meeting.title).lineLimit(1)
-                        Spacer(minLength: 0)
+                ForEach(meetings.prefix(shown)) { meeting in
+                    Button {
+                        model.select(meeting)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Circle().fill(Color(model.color(for: meeting))).frame(width: 6, height: 6)
+                            Text(meeting.title).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .font(.system(size: 11))
+                        .padding(.horizontal, 4)
+                        .frame(height: MonthLayout.rowHeight)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(model.selected?.id == meeting.id ? Color.accentColor.opacity(0.18) : .clear))
+                        .contentShape(Rectangle())
                     }
-                    .font(.system(size: 11))
-                    .padding(.horizontal, 4)
-                    .frame(height: 18)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(model.selected?.id == meeting.id ? Color.accentColor.opacity(0.18) : .clear))
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .help(meeting.isAllDay ? meeting.title : "\(model.startTime(for: meeting)) \(meeting.title)")
+                    .accessibilityLabel(meeting.isAllDay ? meeting.title : "\(meeting.title), \(model.startTime(for: meeting))")
                 }
-                .buttonStyle(.plain)
-                .help(meeting.isAllDay ? meeting.title : "\(model.startTime(for: meeting)) \(meeting.title)")
-                .accessibilityLabel(meeting.isAllDay ? meeting.title : "\(meeting.title), \(model.startTime(for: meeting))")
+                if meetings.count > shown {
+                    Button {
+                        model.go(to: day, mode: .day)
+                    } label: {
+                        Text("\(meetings.count - shown) more")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(height: MonthLayout.moreHeight)
+                            .padding(.leading, 4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(meetings.count - shown) more on \(model.dayLabel(day))")
+                    .accessibilityHint("Opens the day")
+                }
+                Spacer(minLength: 0)
             }
-            if meetings.count > MonthGrid.visibleMeetings {
-                Text("\(meetings.count - MonthGrid.visibleMeetings) more")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
-            }
-            Spacer(minLength: 0)
+            .padding(MonthLayout.padding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .padding(4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(model.isInAnchorMonth(day) ? Color.clear : Color.primary.opacity(0.025))
         .overlay(alignment: .leading) { Rectangle().fill(Color.primary.opacity(0.08)).frame(width: 1) }
+    }
+}
+
+private struct DayNumberButton: View {
+    let model: CalendarWindowModel
+    let day: Date
+
+    var body: some View {
+        TimelineView(.everyMinute) { _ in
+            let today = model.isToday(day)
+            Button {
+                model.go(to: day, mode: .day)
+            } label: {
+                Text(model.dayNumber(day))
+                    .font(.system(size: 12, weight: today ? .bold : .regular))
+                    .monospacedDigit()
+                    .foregroundStyle(today ? Color.white : model.isInAnchorMonth(day) ? Color.primary : Color.secondary)
+                    .frame(minWidth: MonthLayout.dayNumberHeight, minHeight: MonthLayout.dayNumberHeight)
+                    .background { if today { Circle().fill(Color.red) } }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.dayLabel(day))
+        }
     }
 }

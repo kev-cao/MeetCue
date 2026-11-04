@@ -8,7 +8,9 @@ struct MarkdownTextEditor: NSViewRepresentable {
 
     static let font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
 
-    func makeCoordinator() -> Coordinator { Coordinator(onChange: onChange) }
+    func makeCoordinator() -> Coordinator { Coordinator(onChange: onChange, hasMarkers: Self.mayHaveMarkers(text)) }
+
+    static func mayHaveMarkers(_ text: String) -> Bool { text.contains("carried:") }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSTextView.scrollableTextView()
@@ -33,9 +35,8 @@ struct MarkdownTextEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.onChange = onChange
-        guard let textView = scrollView.documentView as? NSTextView, textView.string != text else { return }
-        textView.string = text
-        Self.dimMarkers(in: textView)
+        guard let textView = scrollView.documentView as? NSTextView, !textView.hasMarkedText() else { return }
+        context.coordinator.apply(text, to: textView)
     }
 
     static func dimMarkers(in textView: NSTextView) {
@@ -50,16 +51,32 @@ struct MarkdownTextEditor: NSViewRepresentable {
         textView.typingAttributes = [.font: font, .foregroundColor: NSColor.labelColor]
     }
 
+    @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var onChange: @MainActor (String) -> Void
+        private var hasMarkers: Bool
 
-        init(onChange: @escaping @MainActor (String) -> Void) {
+        init(onChange: @escaping @MainActor (String) -> Void, hasMarkers: Bool) {
             self.onChange = onChange
+            self.hasMarkers = hasMarkers
+        }
+
+        /// Replaces only the part of the text that differs, through the text system, so the
+        /// selection, scroll position and undo history stay with what the user was doing.
+        func apply(_ text: String, to textView: NSTextView) {
+            guard let change = TextEdit.minimalChange(from: textView.string, to: text) else { return }
+            let selection = textView.selectedRange()
+            guard textView.shouldChangeText(in: change.range, replacementString: change.replacement) else { return }
+            textView.textStorage?.replaceCharacters(in: change.range, with: change.replacement)
+            textView.didChangeText()
+            textView.setSelectedRange(TextEdit.selection(selection, through: change, newLength: (textView.string as NSString).length))
         }
 
         func textDidChange(_ notification: Notification) {
-            guard let textView = notification.object as? NSTextView else { return }
-            MarkdownTextEditor.dimMarkers(in: textView)
+            guard let textView = notification.object as? NSTextView, !textView.hasMarkedText() else { return }
+            let hadMarkers = hasMarkers
+            hasMarkers = MarkdownTextEditor.mayHaveMarkers(textView.string)
+            if hadMarkers || hasMarkers { MarkdownTextEditor.dimMarkers(in: textView) }
             onChange(textView.string)
         }
     }

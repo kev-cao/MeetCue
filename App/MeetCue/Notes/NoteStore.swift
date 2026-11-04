@@ -15,6 +15,9 @@ final class NoteStore {
     private(set) var notes: [String: Note] = [:]
     private(set) var saveFailed = false
     private(set) var isStorageAvailable = true
+    /// The keys of notes with any text, kept apart from `notes` so that typing in a note doesn't
+    /// invalidate views that only ask whether one has notes.
+    private var keysWithNotes: Set<String> = []
 
     @ObservationIgnored private let repository: NoteRepository
     @ObservationIgnored private let clock: () -> Date
@@ -46,9 +49,7 @@ final class NoteStore {
     func markdown(for id: OccurrenceID) -> String { notes[id.storageKey]?.markdown ?? "" }
 
     /// Whether the note has any text besides whitespace.
-    func hasNotes(_ id: OccurrenceID) -> Bool {
-        !markdown(for: id).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    func hasNotes(_ id: OccurrenceID) -> Bool { keysWithNotes.contains(id.storageKey) }
 
     /// Unchecked task items: the topics still to bring up.
     func openTopicCount(_ id: OccurrenceID) -> Int {
@@ -116,7 +117,15 @@ final class NoteStore {
         note.occurrenceStart = start
         note.updatedAt = clock()
         notes[key] = note
+        trackText(of: note)
         changed(key)
+    }
+
+    private func trackText(of note: Note) {
+        let hasText = !note.markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if hasText != keysWithNotes.contains(note.occurrenceID) {
+            if hasText { keysWithNotes.insert(note.occurrenceID) } else { keysWithNotes.remove(note.occurrenceID) }
+        }
     }
 
     private func changed(_ key: String) {
@@ -134,6 +143,7 @@ final class NoteStore {
         guard !isStorageAvailable, let loaded = try? repository.loadAll() else { return }
         for note in loaded where notes[note.occurrenceID] == nil {
             notes[note.occurrenceID] = note
+            trackText(of: note)
         }
         isStorageAvailable = true
     }
