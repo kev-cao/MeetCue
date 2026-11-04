@@ -61,3 +61,40 @@ final class FakeCalendarSource: CalendarSource {
         return snapshots.filter { $0.start < end && $0.end > start }
     }
 }
+
+/// Fails the first `failures` saves, then saves into memory.
+@MainActor
+final class FlakyNoteRepository: NoteRepository {
+    struct SaveFailed: Error {}
+
+    var failures: Int
+    private(set) var saved: [String: Note] = [:]
+    private(set) var attempts = 0
+
+    init(failures: Int = 0, notes: [Note] = []) {
+        self.failures = failures
+        saved = Dictionary(uniqueKeysWithValues: notes.map { ($0.occurrenceID, $0) })
+    }
+
+    func loadAll() throws -> [Note] { Array(saved.values) }
+
+    func save(_ notes: [Note]) throws {
+        attempts += 1
+        if failures > 0 {
+            failures -= 1
+            throw SaveFailed()
+        }
+        for note in notes { saved[note.occurrenceID] = note }
+    }
+}
+
+/// Polls `condition` until it holds or `timeout` passes.
+@MainActor
+func eventually(timeout: Duration = .seconds(2.5), _ condition: () -> Bool) async -> Bool {
+    let deadline = ContinuousClock.now + timeout
+    while ContinuousClock.now < deadline {
+        if condition() { return true }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return condition()
+}
