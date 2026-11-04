@@ -1,0 +1,38 @@
+name: MeetCue
+options:
+  bundleIdPrefix: io.github.kev-cao
+  deploymentTarget:
+    macOS: "26.0"
+packages:
+  MeetCueCore:
+    path: MeetCueCore
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+targets:
+  MeetCue:
+    type: application
+    platform: macOS
+    sources: [App/MeetCue]
+    dependencies:
+      - package: MeetCueCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.kev-cao.MeetCue
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: MeetCue
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: MeetCue reads your calendars to show your next meeting and alert you before it starts.
+    scheme:
+      testTargets: [MeetCueTests]
+  MeetCueTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [App/MeetCueTests]
+    dependencies:
+      - target: MeetCue
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
