@@ -70,4 +70,23 @@ struct MeetingFilterTests {
         let result = MeetingFilter.alertable([declined], filter: CalendarFilter(skipDeclined: false))
         #expect(result.count == 1)
     }
+
+    @Test func declinedBeatsUnknownReply() {
+        let declined = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "work", status: .declined)
+        let unknown = Fixtures.meeting(start: Fixtures.at(14, 30), series: "x", calendarID: "team", status: .unknown)
+        for input in [[declined, unknown], [unknown, declined]] {
+            let result = MeetingFilter.visible(input, filter: CalendarFilter())
+            #expect(result.map(\.calendarID) == ["work"])
+            #expect(MeetingFilter.alertable(input, filter: CalendarFilter()).isEmpty)
+        }
+    }
+
+    @Test func relevantDropsDeclinedButKeepsAllDay() {
+        let declined = Fixtures.meeting("Declined", start: Fixtures.at(10, 0), series: "a", status: .declined)
+        let allDay = Fixtures.meeting("Holiday", start: Fixtures.at(0, 0), series: "b", allDay: true)
+        let normal = Fixtures.meeting("Normal", start: Fixtures.at(11, 0), series: "c")
+        let input = [declined, allDay, normal]
+        #expect(MeetingFilter.relevant(input, filter: CalendarFilter()).map(\.title) == ["Holiday", "Normal"])
+        #expect(MeetingFilter.relevant(input, filter: CalendarFilter(skipDeclined: false)).map(\.title) == ["Holiday", "Declined", "Normal"])
+    }
 }

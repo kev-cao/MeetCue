@@ -28,13 +28,14 @@ public enum MeetingFilter {
         }
     }
 
-    /// Visible meetings that may trigger the full-screen alert.
+    /// Visible meetings, without declined ones when `skipDeclined` is on. Feeds the menu bar and its dropdown.
+    public static func relevant(_ meetings: [Meeting], filter: CalendarFilter) -> [Meeting] {
+        visible(meetings, filter: filter).filter { !(filter.skipDeclined && $0.myStatus == .declined) }
+    }
+
+    /// Relevant meetings that may trigger the full-screen alert.
     public static func alertable(_ meetings: [Meeting], filter: CalendarFilter) -> [Meeting] {
-        visible(meetings, filter: filter).filter { meeting in
-            !meeting.isAllDay
-                && !filter.alertOffCalendarIDs.contains(meeting.calendarID)
-                && !(filter.skipDeclined && meeting.myStatus == .declined)
-        }
+        relevant(meetings, filter: filter).filter { !$0.isAllDay && !filter.alertOffCalendarIDs.contains($0.calendarID) }
     }
 
     private static func rank(_ meeting: Meeting, _ filter: CalendarFilter) -> (Int, Int, String) {
@@ -46,8 +47,8 @@ public enum MeetingFilter {
         case .accepted: 0
         case .tentative: 1
         case .pending: 2
-        case .unknown: 3
-        case .declined: 4
+        case .declined: 3
+        case .unknown: 4
         }
     }
 }

@@ -113,4 +113,17 @@ struct MenuBarTextTests {
         let settings = MenuBarSettings(titleLength: 5)
         #expect(show([sync], at: Fixtures.at(14, 6), settings: settings).scrollsTitle == true)
     }
+
+    @Test func featuredMatchesDisplay() {
+        let featured = MenuBarText.featured(in: [sync], now: Fixtures.at(14, 6), calendar: Fixtures.calendar)
+        #expect(featured?.title == "Team Sync")
+        #expect(MenuBarText.featured(in: [sync], now: Fixtures.at(17, 10), calendar: Fixtures.calendar) == nil)
+    }
+
+    @Test func nextMeetingTieBreaksByTitle() {
+        let zeta = Fixtures.meeting("Zeta", start: Fixtures.at(14, 30), series: "z")
+        let alpha = Fixtures.meeting("Alpha", start: Fixtures.at(14, 30), series: "a")
+        let featured = MenuBarText.featured(in: [zeta, alpha], now: Fixtures.at(14, 6), calendar: Fixtures.calendar)
+        #expect(featured?.title == "Alpha")
+    }
 }

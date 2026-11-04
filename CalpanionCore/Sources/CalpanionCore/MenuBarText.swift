@@ -41,10 +41,27 @@ public struct MenuBarDisplay: Equatable, Sendable {
 }
 
 public enum MenuBarText {
-    /// What the menu bar item shows at `now`. `meetings` should already be
-    /// filtered to visible calendars; all-day events are skipped here.
+    private static let hour: TimeInterval = 3600
+
+    /// The meeting the menu bar is about: the dropdown, Join, and Add a topic act on it too.
     /// When several meetings are live, the one that started most recently wins, then the one ending sooner, then the title.
-    /// The next meeting shows if it starts later today or within the next hour.
+    /// Otherwise the earliest meeting that starts later today or within the next hour, then by title.
+    /// All-day events are skipped.
+    public static func featured(in meetings: [Meeting], now: Date, calendar: Calendar) -> Meeting? {
+        let timed = meetings.filter { !$0.isAllDay }
+        let current = timed
+            .filter { $0.start <= now && now < $0.end }
+            .min { ($1.start, $0.end, $0.title) < ($0.start, $1.end, $1.title) }
+        if current != nil { return current }
+        return timed
+            .filter {
+                $0.start > now
+                    && (calendar.isDate($0.start, inSameDayAs: now) || $0.start.timeIntervalSince(now) <= hour)
+            }
+            .min { ($0.start, $0.title) < ($1.start, $1.title) }
+    }
+
+    /// What the menu bar item shows at `now`. `meetings` comes from `MeetingFilter.relevant`.
     public static func display(
         meetings: [Meeting],
         now: Date,
@@ -52,23 +69,13 @@ public enum MenuBarText {
         settings: MenuBarSettings,
         calendar: Calendar
     ) -> MenuBarDisplay {
-        let timed = meetings.filter { !$0.isAllDay }
-        let current = timed
-            .filter { $0.start <= now && now < $0.end }
-            .min { ($1.start, $0.end, $0.title) < ($0.start, $1.end, $1.title) }
-        let next = timed
-            .filter {
-                $0.start > now
-                    && (calendar.isDate($0.start, inSameDayAs: now) || $0.start.timeIntervalSince(now) <= 3600)
-            }
-            .min { $0.start < $1.start }
-        guard let meeting = current ?? next else {
+        guard let meeting = featured(in: meetings, now: now, calendar: calendar) else {
             return MenuBarDisplay(icon: .doneForToday, time: nil, title: nil, scrollsTitle: false)
         }
 
-        let isLive = current != nil
+        let isLive = meeting.start <= now
         let untilStart = meeting.start.timeIntervalSince(now)
-        let withinHour = !isLive && untilStart <= 3600
+        let withinHour = !isLive && untilStart <= hour
 
         let time: String
         if isLive {

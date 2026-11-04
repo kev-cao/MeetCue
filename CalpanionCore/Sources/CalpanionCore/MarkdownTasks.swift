@@ -13,6 +13,41 @@ public enum MarkdownTasks {
     /// GitHub-style task items (`- [ ]`, `* [x]`, `1. [ ]`, any indent), skipping fenced code blocks.
     /// An unclosed code fence runs to the end of the note, so later task lines aren't items.
     public static func items(in markdown: String) -> [TaskItem] {
+        scan(markdown).items
+    }
+
+    /// Flips the checkbox on `line`. Returns the text unchanged if that line isn't a task item.
+    public static func toggle(_ markdown: String, line index: Int) -> String {
+        guard items(in: markdown).contains(where: { $0.line == index }) else { return markdown }
+        var lines = markdown.components(separatedBy: "\n")
+        guard let parts = matchTask(lines[index]) else { return markdown }
+        let mark = parts.mark == " " ? "x" : " "
+        lines[index] = "\(parts.lead)\(mark)\(parts.close)\(parts.body)\(parts.eol)"
+        return lines.joined(separator: "\n")
+    }
+
+    /// Adds `- [ ] topic` as a new last line.
+    public static func appendTopic(_ topic: String, to markdown: String) -> String {
+        let topic = topic
+            .split(whereSeparator: \.isNewline)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard !topic.isEmpty else { return markdown }
+        return appending(["- [ ] \(topic)"], to: markdown)
+    }
+
+    static func appending(_ newLines: [String], to markdown: String) -> String {
+        let eol = markdown.contains("\r\n") ? "\r\n" : "\n"
+        var lines = newLines
+        if let open = scan(markdown).openFence {
+            lines.insert(String(repeating: open.character, count: open.length), at: 0)
+        }
+        let block = lines.joined(separator: eol)
+        if markdown.isEmpty { return block }
+        return markdown.utf8.last == UInt8(ascii: "\n") ? markdown + block : markdown + eol + block
+    }
+
+    private static func scan(_ markdown: String) -> (items: [TaskItem], openFence: Fence?) {
         var result: [TaskItem] = []
         var openFence: Fence?
         for (index, line) in markdown.components(separatedBy: "\n").enumerated() {
@@ -29,33 +64,7 @@ public enum MarkdownTasks {
             guard !text.isEmpty else { continue }
             result.append(TaskItem(line: index, text: text, isChecked: parts.mark != " ", carriedFrom: carriedFrom))
         }
-        return result
-    }
-
-    /// Flips the checkbox on `line`. Returns the text unchanged if that line isn't a task item.
-    public static func toggle(_ markdown: String, line index: Int) -> String {
-        guard items(in: markdown).contains(where: { $0.line == index }) else { return markdown }
-        var lines = markdown.components(separatedBy: "\n")
-        guard let parts = matchTask(lines[index]) else { return markdown }
-        let mark = parts.mark == " " ? "x" : " "
-        lines[index] = "\(parts.lead)\(mark)\(parts.close)\(parts.body)\(parts.eol)"
-        return lines.joined(separator: "\n")
-    }
-
-    /// Adds `- [ ] topic` as a new last line.
-    public static func appendTopic(_ topic: String, to markdown: String) -> String {
-        let topic = topic
-            .replacingOccurrences(of: "\n", with: " ")
-            .trimmingCharacters(in: .whitespaces)
-        guard !topic.isEmpty else { return markdown }
-        return appending(["- [ ] \(topic)"], to: markdown)
-    }
-
-    static func appending(_ newLines: [String], to markdown: String) -> String {
-        let eol = markdown.contains("\r\n") ? "\r\n" : "\n"
-        let block = newLines.joined(separator: eol)
-        if markdown.isEmpty { return block }
-        return markdown.utf8.last == UInt8(ascii: "\n") ? markdown + block : markdown + eol + block
+        return (result, openFence)
     }
 
     private struct Fence {

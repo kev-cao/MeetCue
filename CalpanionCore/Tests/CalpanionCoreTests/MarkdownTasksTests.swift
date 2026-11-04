@@ -107,4 +107,16 @@ struct MarkdownTasksTests {
         #expect(item?.text == "Topic")
         #expect(item?.carriedFrom == nil)
     }
+
+    @Test func appendTopicClosesAnOpenFence() {
+        let result = MarkdownTasks.appendTopic("Ask Q1", to: "Notes\n```\ncode")
+        #expect(result == "Notes\n```\ncode\n```\n- [ ] Ask Q1")
+        #expect(MarkdownTasks.items(in: result).map(\.text) == ["Ask Q1"])
+    }
+
+    @Test func appendTopicFlattensAllLineBreaks() {
+        for topic in ["a\r\nb", "a\rb", "a\u{2028}b"] {
+            #expect(MarkdownTasks.appendTopic(topic, to: "") == "- [ ] a b")
+        }
+    }
 }

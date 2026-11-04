@@ -70,4 +70,10 @@ struct CarryOverTests {
         #expect(CarryOver.nextOccurrence(after: oneOff, in: [oneOff]) == nil)
         #expect(CarryOver.nextOccurrence(after: last, in: [last]) == nil)
     }
+
+    @Test func carryIntoOpenFenceIsIdempotent() {
+        let once = carry("- [ ] A", into: "```\ncode")
+        let twice = carry("- [ ] A", into: once)
+        #expect(once == twice)
+    }
 }
