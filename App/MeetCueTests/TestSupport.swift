@@ -10,8 +10,8 @@ enum AppFixtures {
     }()
 
     /// A wall-clock time in New York, on Wednesday Nov 4 2026 unless given.
-    static func at(_ hour: Int, _ minute: Int, day: Int = 4) -> Date {
-        calendar.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute))!
+    static func at(_ hour: Int, _ minute: Int, second: Int = 0, day: Int = 4) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute, second: second))!
     }
 
     static func event(
@@ -37,6 +37,10 @@ enum AppFixtures {
 final class InMemoryQuietStorage: QuietStorage {
     var until: Date?
     var preset: String?
+}
+
+final class InMemoryDismissedAlertStorage: DismissedAlertStorage {
+    var records: [String: Date] = [:]
 }
 
 @MainActor
