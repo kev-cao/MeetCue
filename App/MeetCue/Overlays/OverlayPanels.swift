@@ -23,7 +23,7 @@ class OverlayPanel: NSPanel {
 final class AlertPanel: OverlayPanel {
     init(screen: NSScreen, model: OverlayModel) {
         super.init(level: .screenSaver)
-        let hostingView = NSHostingView(rootView: AlertScreen(model: model))
+        let hostingView = FirstClickHostingView(rootView: AlertScreen(model: model))
         // The view fills whatever it's given; without this the hosting view would size the panel to the card.
         hostingView.sizingOptions = []
         contentView = hostingView
@@ -41,6 +41,7 @@ final class CornerPanel<Content: View>: OverlayPanel {
         hostingView = FirstClickHostingView(rootView: rootView)
         hostingView.sizingOptions = []
         super.init(level: .statusBar)
+        allowsToolTipsWhenApplicationIsInactive = true
         contentView = hostingView
     }
 

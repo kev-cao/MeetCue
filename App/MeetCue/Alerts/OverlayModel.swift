@@ -171,9 +171,11 @@ final class OverlayModel {
             } else {
                 noticeTitles = gone.map { Self.shortened($0.title) }
             }
+            var seen = Set<String>()
+            noticeTitles = noticeTitles.filter { seen.insert($0).inserted }
             let verb = noticeTitles.count == 1 ? "is" : "are"
             notice = CancelNotice(
-                text: "\(noticeTitles.joined(separator: " and ")) \(verb) no longer on your calendar",
+                text: "\(Self.listed(noticeTitles)) \(verb) no longer on your calendar",
                 until: now.addingTimeInterval(timing.cancelNoticeDuration)
             )
         } else if let notice, notice.until <= now {
@@ -255,6 +257,12 @@ final class OverlayModel {
     /// Keeps the notice's fixed suffix on screen when it is shown on one line.
     private static func shortened(_ title: String) -> String {
         title.count > noticeTitleLimit ? title.prefix(noticeTitleLimit - 1) + "…" : title
+    }
+
+    /// "A", "A and B", "A, B and C".
+    private static func listed(_ titles: [String]) -> String {
+        guard let last = titles.last, titles.count > 1 else { return titles.first ?? "" }
+        return titles.dropLast().joined(separator: ", ") + " and " + last
     }
 
     private static func isPastAlert(_ state: OverlayState) -> Bool {

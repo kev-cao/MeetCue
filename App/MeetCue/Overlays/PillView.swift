@@ -5,9 +5,16 @@ struct PillStack: View {
     let model: OverlayModel
 
     var body: some View {
-        TimelineView(.periodic(from: .wholeSecond, by: 1)) { _ in
-            PillStackContent(model: model, now: model.currentTime())
+        Group {
+            if model.pillMeetings.isEmpty && model.notice == nil {
+                Color.clear
+            } else {
+                TimelineView(.periodic(from: .wholeSecond, by: 1)) { _ in
+                    PillStackContent(model: model, now: model.currentTime())
+                }
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
     }
 }
 

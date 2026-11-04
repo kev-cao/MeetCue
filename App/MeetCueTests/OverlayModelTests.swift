@@ -226,6 +226,37 @@ final class OverlayModelTests {
         #expect(model.notice == CancelNotice(text: "Standup and Team Sync are no longer on your calendar", until: AppFixtures.at(14, 28, second: 7)))
     }
 
+    @Test func threeTitlesInOneNoticeAreListedWithCommasAndAnd() {
+        source.snapshots.append(AppFixtures.event("Standup", start: AppFixtures.at(14, 30), series: "series-2"))
+        source.snapshots.append(AppFixtures.event("Design review", start: AppFixtures.at(14, 30), series: "series-3"))
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.alertMeetings.count == 3)
+
+        source.snapshots = []
+        store.refresh()
+        model.refresh()
+        #expect(model.notice?.text == "Design review, Standup and Team Sync are no longer on your calendar")
+    }
+
+    @Test func aTitleThatDisappearsTwiceWithinFiveSecondsIsListedOnce() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        source.snapshots = []
+        store.refresh()
+        model.refresh()
+
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30))]
+        store.refresh()
+        at(AppFixtures.at(14, 28, second: 1), model)
+        #expect(model.alertMeetings.count == 1)
+
+        source.snapshots = []
+        store.refresh()
+        at(AppFixtures.at(14, 28, second: 2), model)
+        #expect(model.notice?.text == "Team Sync is no longer on your calendar")
+    }
+
     @Test func aMeetingThatDisappearsAndReturnsAlertsAgain() {
         let model = makeModel()
         at(AppFixtures.at(14, 28), model)

@@ -10,10 +10,27 @@ final class OverlayController {
     private let pillPanel: CornerPanel<PillStack>
     private var keyMonitor: Any?
     private var screenObserver: NSObjectProtocol?
+    private var activationObserver: NSObjectProtocol?
+
+    enum OverlayKey: Equatable {
+        case escape
+        case `return`
+    }
 
     private static let escape: UInt16 = 53
     private static let returnKey: UInt16 = 36
     private static let keypadEnter: UInt16 = 76
+    private static let blockingModifiers: NSEvent.ModifierFlags = [.shift, .control, .option, .command]
+
+    /// Caps Lock, keypad, function and help flags don't count as modifiers.
+    static func overlayKey(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> OverlayKey? {
+        guard modifiers.intersection(blockingModifiers).isEmpty else { return nil }
+        switch keyCode {
+        case escape: return .escape
+        case returnKey, keypadEnter: return .return
+        default: return nil
+        }
+    }
 
     init(model: OverlayModel) {
         self.model = model
@@ -53,18 +70,38 @@ final class OverlayController {
     }
 
     private func showAlert() {
+        guard !NSScreen.screens.isEmpty else { return }
         alertPanels = NSScreen.screens.map { AlertPanel(screen: $0, model: model) }
         for panel in alertPanels {
             panel.orderFrontRegardless()
         }
         alertPanels.first?.makeKeyAndOrderFront(nil)
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let keyCode = event.keyCode
-            let hasModifiers = !event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty
-            let handled = MainActor.assumeIsolated { self?.handleKey(keyCode, hasModifiers: hasModifiers) ?? false }
-            // Handled keys are swallowed so they don't also press the focused button.
-            return handled ? nil : event
+        if keyMonitor == nil {
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                let keyCode = event.keyCode
+                let modifiers = event.modifierFlags
+                let inAlert = event.window is AlertPanel
+                let handled = MainActor.assumeIsolated {
+                    inAlert && (self?.handleKey(keyCode, modifiers: modifiers) ?? false)
+                }
+                // Consuming the event stops the system beep and any default handling.
+                return handled ? nil : event
+            }
         }
+        if activationObserver == nil {
+            activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.reclaimKey() }
+            }
+        }
+    }
+
+    /// Lets `esc` and `↩` reach the alert after another app is activated, e.g. with ⌘-Tab.
+    private func reclaimKey() {
+        guard let panel = alertPanels.first else { return }
+        panel.orderFrontRegardless()
+        panel.makeKey()
     }
 
     private func closeAlert() {
@@ -76,26 +113,26 @@ final class OverlayController {
             NSEvent.removeMonitor(keyMonitor)
         }
         keyMonitor = nil
+        if let activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+        }
+        activationObserver = nil
     }
 
-    private func handleKey(_ keyCode: UInt16, hasModifiers: Bool) -> Bool {
-        guard !alertPanels.isEmpty, !hasModifiers else { return false }
-        switch keyCode {
-        case Self.escape:
+    private func handleKey(_ keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+        guard !alertPanels.isEmpty, let key = Self.overlayKey(keyCode: keyCode, modifiers: modifiers) else { return false }
+        switch key {
+        case .escape:
             model.pressEscape()
-        case Self.returnKey, Self.keypadEnter:
+        case .return:
             model.pressReturn()
-        default:
-            return false
         }
         return true
     }
 
     private func screensChanged() {
-        if !alertPanels.isEmpty {
-            closeAlert()
-            showAlert()
-        }
+        closeAlert()
+        syncAlert()
         syncPill()
     }
 

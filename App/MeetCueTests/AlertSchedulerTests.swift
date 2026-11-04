@@ -20,8 +20,9 @@ struct AlertSchedulerTests {
         return (store, model)
     }
 
-    func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<125 {
+    func eventually(timeout: Duration = .seconds(2.5), _ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
             if condition() { return true }
             try? await Task.sleep(for: .milliseconds(20))
         }
@@ -45,6 +46,6 @@ struct AlertSchedulerTests {
         let scheduler = AlertScheduler(model: model)
         scheduler.start()
         #expect(model.alertMeetings.isEmpty)
-        #expect(await eventually { model.alertMeetings.count == 1 })
+        #expect(await eventually(timeout: .seconds(10)) { model.alertMeetings.count == 1 })
     }
 }

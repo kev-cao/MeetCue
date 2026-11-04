@@ -7,7 +7,7 @@ struct AlertTiming: Equatable {
     /// How long after start a missed alert still appears, e.g. after waking the Mac.
     var lateAlertWindow: TimeInterval = 300
     var snoozeLength: TimeInterval = 60
-    /// How long the pill says a meeting was cancelled.
+    /// How long the pill shows meetings that left the calendar.
     var cancelNoticeDuration: TimeInterval = 5
     /// How long before an alert the app holds a `ProcessInfo` activity, so App Nap can't delay the timer.
     var activityLeadTime: TimeInterval = 300
