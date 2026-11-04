@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.calendarWindow = calendarWindow
         let carrier = NoteCarrier(notes: notes, store: store)
         let scheduler = AlertScheduler(model: overlays)
-        scheduler.onRefresh = { carrier.run(now: Date()) }
+        scheduler.beforeRefresh = { carrier.run(now: Date()) }
         alertScheduler = scheduler
         overlayController = OverlayController(model: overlays, openMeeting: { calendarWindow.show(selecting: $0) })
         let hotKeys = GlobalHotKeys()

@@ -87,4 +87,51 @@ struct NoteCarrierTests {
         carrier.run(now: AppFixtures.at(15, 0))
         #expect(notes.hasNotes(meeting(weekly(day: 11)).id))
     }
+
+    @Test func aDeletedSourceStillInProgressIsNotCarried() throws {
+        source.snapshots = [weekly(day: 11)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
+        makeCarrier().run(now: AppFixtures.at(15, 0))
+        #expect(!notes.hasNotes(meeting(weekly(day: 11)).id))
+        #expect(try #require(notes.note(for: meeting(weekly(day: 4)).id)).carriedForward == false)
+    }
+
+    @Test func aDeletedSourceLongPastIsCarried() throws {
+        source.snapshots = [weekly(day: 11)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
+        makeCarrier().run(now: AppFixtures.at(3, 30, day: 5))
+        #expect(notes.markdown(for: meeting(weekly(day: 11)).id) == "- [ ] Budget <!-- carried:2026-11-04 -->")
+        #expect(try #require(notes.note(for: meeting(weekly(day: 4)).id)).carriedForward)
+    }
+
+    @Test func pendingNotesOfOneSeriesChainInOneRun() {
+        source.snapshots = [weekly(day: 21, month: 10), weekly(day: 28, month: 10), weekly(day: 4)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 21, month: 10)))
+        notes.setMarkdown("- [ ] Hiring", for: meeting(weekly(day: 28, month: 10)))
+        makeCarrier().run(now: AppFixtures.at(9, 0))
+        #expect(notes.markdown(for: meeting(weekly(day: 4)).id) == """
+        - [ ] Hiring <!-- carried:2026-10-28 -->
+        - [ ] Budget <!-- carried:2026-10-21 -->
+        """)
+    }
+
+    @Test func topicsCarriedIntoAnOccurrenceThatIsLaterDeletedMoveOnWhenItsStartPasses() {
+        source.snapshots = [weekly(day: 4), weekly(day: 11), weekly(day: 18)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 4)))
+        makeCarrier().run(now: AppFixtures.at(15, 0))
+        #expect(notes.hasNotes(meeting(weekly(day: 11)).id))
+        source.snapshots = [weekly(day: 4), weekly(day: 18)]
+        makeCarrier().run(now: AppFixtures.at(3, 30, day: 12))
+        #expect(notes.markdown(for: meeting(weekly(day: 18)).id) == "- [ ] Budget <!-- carried:2026-11-04 -->")
+    }
+
+    @Test func oneRunReadsTheCalendarOnce() {
+        source.snapshots = [weekly(day: 21, month: 10), weekly(day: 28, month: 10), weekly(day: 4)]
+        notes.setMarkdown("- [ ] Budget", for: meeting(weekly(day: 21, month: 10)))
+        notes.setMarkdown("- [ ] Hiring", for: meeting(weekly(day: 28, month: 10)))
+        let carrier = makeCarrier()
+        let before = source.queries
+        carrier.run(now: AppFixtures.at(9, 0))
+        #expect(source.queries - before == 1)
+    }
 }

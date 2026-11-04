@@ -7,8 +7,12 @@ import Testing
 struct NoteStoreTests {
     let sync = MeetingMapper.meeting(from: AppFixtures.event(start: AppFixtures.at(14, 30)))
 
-    func makeStore(_ repository: NoteRepository, retry: Duration = .seconds(10)) -> NoteStore {
-        NoteStore(repository: repository, clock: { AppFixtures.at(9, 0) }, saveDelay: .milliseconds(20), retryInterval: retry)
+    func makeStore(_ repository: NoteRepository, retry: Duration = .seconds(10), delay: Duration = .milliseconds(20), maxDelay: Duration = .seconds(5)) -> NoteStore {
+        NoteStore(repository: repository, clock: { AppFixtures.at(9, 0) }, saveDelay: delay, maxSaveDelay: maxDelay, retryInterval: retry)
+    }
+
+    func savedNote(_ markdown: String, series: String = "series-0") -> Note {
+        Note(occurrenceID: series, seriesKey: series, occurrenceStart: AppFixtures.at(9, 0), markdown: markdown, updatedAt: .now, carriedForward: false)
     }
 
     @Test func editsSaveAfterAShortDelay() async throws {
@@ -91,5 +95,40 @@ struct NoteStoreTests {
         moved.start = AppFixtures.at(15, 0)
         store.appendTopic("Hiring", to: moved)
         #expect(store.note(for: sync.id)?.occurrenceStart == AppFixtures.at(15, 0))
+    }
+
+    @Test func aFailedLoadBlocksSavesUntilALoadSucceeds() async {
+        let existing = savedNote("Old")
+        let repository = FlakyNoteRepository(loadFailures: 2, notes: [existing])
+        let store = makeStore(repository)
+        #expect(!store.isStorageAvailable)
+        store.setMarkdown("- [ ] Budget", for: sync)
+        #expect(!store.isStorageAvailable)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(repository.attempts == 0)
+        store.appendTopic("Hiring", to: sync)
+        #expect(store.isStorageAvailable)
+        #expect(store.markdown(for: sync.id) == "- [ ] Budget\n- [ ] Hiring")
+        #expect(store.markdown(for: OccurrenceID(seriesKey: "series-0", originalDate: nil)) == "Old")
+        #expect(await eventually { repository.saved[sync.id.storageKey] != nil })
+        #expect(repository.saved[existing.occurrenceID] == existing)
+    }
+
+    @Test func unavailableStorageIsReportedFromTheStart() {
+        let store = makeStore(UnavailableNoteRepository())
+        #expect(!store.isStorageAvailable)
+        #expect(makeStore(FlakyNoteRepository()).isStorageAvailable)
+    }
+
+    @Test func continuousTypingStillSavesAtTheMaximumDelay() async {
+        let repository = FlakyNoteRepository()
+        let store = makeStore(repository, delay: .milliseconds(150), maxDelay: .milliseconds(300))
+        for index in 0..<12 {
+            store.setMarkdown("Line \(index)", for: sync)
+            try? await Task.sleep(for: .milliseconds(50))
+            if repository.attempts > 0 { break }
+        }
+        #expect(repository.attempts == 1)
+        #expect(repository.saved[sync.id.storageKey] != nil)
     }
 }

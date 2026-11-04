@@ -159,7 +159,11 @@ private struct NotesEditor: View {
             .padding(.horizontal, 12)
             .frame(height: 36)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
-            if model.notes.saveFailed {
+            if !model.notes.isStorageAvailable {
+                Label("Notes can't be saved right now.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.orange)
+            } else if model.notes.saveFailed {
                 Label("Couldn't save. Retrying.", systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.orange)

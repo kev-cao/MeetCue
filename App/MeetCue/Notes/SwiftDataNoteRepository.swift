@@ -82,16 +82,21 @@ final class SwiftDataNoteRepository: NoteRepository {
                 records[note.occurrenceID] = record
             }
         }
-        try context.save()
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
+        }
     }
 }
 
-/// Stands in when the notes file can't be opened: nothing loads, and every save fails, so the
-/// editor keeps the text in memory and says it couldn't save.
+/// Stands in when the notes file can't be opened: nothing loads, so the store keeps the text in
+/// memory and says it can't save.
 @MainActor
 final class UnavailableNoteRepository: NoteRepository {
     struct Unavailable: Error {}
 
-    func loadAll() throws -> [Note] { [] }
+    func loadAll() throws -> [Note] { throw Unavailable() }
     func save(_ notes: [Note]) throws { throw Unavailable() }
 }

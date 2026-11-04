@@ -245,7 +245,7 @@ final class OverlayModel {
             dismissed.remove(meeting.id)
         }
         if alertsOff {
-            // Turning a calendar's alerts off closes its open alert as if dismissed.
+            // The meeting is still on the calendar, so no cancel notice should appear.
             switch entry.state {
             case .alert, .snoozed, .pill: entry.state = .dismissed
             default: break
@@ -289,8 +289,7 @@ final class OverlayModel {
         entries.values.filter { $0.state == state }.map(\.meeting).sorted(by: Self.isOrderedBefore)
     }
 
-    /// The card appears at the start, only for meetings with notes, and hides at the end. The Settings
-    /// window will make the first three configurable.
+    /// The card appears at the start, only for meetings with notes, and hides at the end.
     private func notesPolicy(for meeting: Meeting) -> NotesPolicy {
         NotesPolicy(hasNotes: notes.hasNotes(meeting.id))
     }

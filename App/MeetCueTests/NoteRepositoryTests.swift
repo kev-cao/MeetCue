@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import MeetCue
 
@@ -44,5 +45,16 @@ struct NoteRepositoryTests {
         #expect(url.lastPathComponent == "Notes.store")
         #expect(url.deletingLastPathComponent().lastPathComponent == "MeetCue")
         #expect(url.path(percentEncoded: false).contains("/Library/Application Support/"))
+    }
+
+    @Test func aFailedSaveLeavesNothingPending() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appending(components: "MeetCueTests-\(UUID().uuidString)", "Notes.store")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        _ = try SwiftDataNoteRepository(url: url)
+        let container = try ModelContainer(for: NoteRecord.self, configurations: ModelConfiguration(url: url, allowsSave: false))
+        let repository = SwiftDataNoteRepository(container: container)
+        #expect(throws: (any Error).self) { try repository.save([note()]) }
+        #expect(!container.mainContext.hasChanges)
     }
 }

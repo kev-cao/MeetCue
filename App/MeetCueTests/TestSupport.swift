@@ -53,6 +53,7 @@ final class FakeCalendarSource: CalendarSource {
     var calendarList: [CalendarInfo] = []
     var onChange: (@MainActor () -> Void)?
     private(set) var requestedRange: (start: Date, end: Date)?
+    private(set) var queries = 0
 
     func requestAccess() async -> CalendarAccess {
         access = accessAfterRequest
@@ -61,27 +62,37 @@ final class FakeCalendarSource: CalendarSource {
 
     func events(from start: Date, to end: Date) -> [EventSnapshot] {
         requestedRange = (start, end)
+        queries += 1
         return snapshots.filter { $0.start < end && $0.end > start }
     }
 
     func calendars() -> [CalendarInfo] { calendarList }
 }
 
-/// Fails the first `failures` saves, then saves into memory.
+/// Fails the first `loadFailures` loads and the first `failures` saves, then works from memory.
 @MainActor
 final class FlakyNoteRepository: NoteRepository {
     struct SaveFailed: Error {}
+    struct LoadFailed: Error {}
 
     var failures: Int
+    var loadFailures: Int
     private(set) var saved: [String: Note] = [:]
     private(set) var attempts = 0
 
-    init(failures: Int = 0, notes: [Note] = []) {
+    init(failures: Int = 0, loadFailures: Int = 0, notes: [Note] = []) {
         self.failures = failures
+        self.loadFailures = loadFailures
         saved = Dictionary(uniqueKeysWithValues: notes.map { ($0.occurrenceID, $0) })
     }
 
-    func loadAll() throws -> [Note] { Array(saved.values) }
+    func loadAll() throws -> [Note] {
+        if loadFailures > 0 {
+            loadFailures -= 1
+            throw LoadFailed()
+        }
+        return Array(saved.values)
+    }
 
     func save(_ notes: [Note]) throws {
         attempts += 1

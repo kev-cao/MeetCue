@@ -7,12 +7,12 @@ import Testing
 struct AlertSchedulerTests {
     let source = FakeCalendarSource()
 
-    func makeModel(clock: @escaping () -> Date) -> (MeetingStore, OverlayModel) {
+    func makeModel(notes: NoteStore = NoteStore(repository: FlakyNoteRepository()), clock: @escaping () -> Date) -> (MeetingStore, OverlayModel) {
         let store = MeetingStore(source: source, now: clock, calendar: AppFixtures.calendar)
         let model = OverlayModel(
             store: store,
             quiet: QuietMode(storage: InMemoryQuietStorage()),
-            notes: NoteStore(repository: FlakyNoteRepository()),
+            notes: notes,
             dismissed: DismissedAlerts(storage: InMemoryDismissedAlertStorage()),
             clock: clock,
             calendar: AppFixtures.calendar,
@@ -40,14 +40,31 @@ struct AlertSchedulerTests {
         #expect(await eventually { model.alertMeetings.count == 1 })
     }
 
-    @Test func runsTheRefreshHookAfterEveryRefresh() {
+    @Test func runsTheRefreshHookBeforeEveryRefresh() {
         let (_, model) = makeModel { AppFixtures.at(14, 0) }
         let scheduler = AlertScheduler(model: model)
         var refreshes = 0
-        scheduler.onRefresh = { refreshes += 1 }
+        scheduler.beforeRefresh = { refreshes += 1 }
         scheduler.start()
         scheduler.refresh()
         #expect(refreshes == 2)
+    }
+
+    @Test func topicsCarriedIntoAMeetingInProgressShowOnItsCardAtOnce() {
+        let clock = { AppFixtures.at(14, 40, day: 11) }
+        func weekly(day: Int) -> EventSnapshot {
+            AppFixtures.event(start: AppFixtures.at(14, 30, day: day), series: "weekly", recurring: true)
+        }
+        let notes = NoteStore(repository: FlakyNoteRepository(), saveDelay: .seconds(60))
+        notes.setMarkdown("- [ ] Budget", for: MeetingMapper.meeting(from: weekly(day: 4)))
+        source.snapshots = [weekly(day: 4), weekly(day: 11)]
+        let (store, model) = makeModel(notes: notes, clock: clock)
+        store.refresh()
+        let carrier = NoteCarrier(notes: notes, store: store, calendar: AppFixtures.calendar)
+        let scheduler = AlertScheduler(model: model)
+        scheduler.beforeRefresh = { carrier.run(now: clock()) }
+        scheduler.start()
+        #expect(model.notesCardMeeting?.start == AppFixtures.at(14, 30, day: 11))
     }
 
     @Test func settlesWhenTheTimerFires() async {

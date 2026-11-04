@@ -2,34 +2,43 @@ import Foundation
 import MeetCueCore
 import Observation
 
-/// Every note, in memory, saved to the repository 0.5 s after the last change. When a save fails,
-/// the text stays in memory, `saveFailed` is set, and the save is retried on the next change and
-/// every 10 s until it succeeds.
+/// Every note, in memory, saved to the repository 0.5 s after the last change, and at least every
+/// 5 s during continuous edits. When a save fails, the text stays in memory, `saveFailed` is set,
+/// and the save is retried on the next change and every 10 s until it succeeds.
+///
+/// When the notes can't be loaded, nothing is saved, so existing records are never written over.
+/// `isStorageAvailable` is false until a load succeeds, which is tried again on each change; the
+/// edits made meanwhile stay in memory and are saved with the loaded notes.
 @MainActor
 @Observable
 final class NoteStore {
     private(set) var notes: [String: Note] = [:]
     private(set) var saveFailed = false
+    private(set) var isStorageAvailable = true
 
     @ObservationIgnored private let repository: NoteRepository
     @ObservationIgnored private let clock: () -> Date
     @ObservationIgnored private let saveDelay: Duration
+    @ObservationIgnored private let maxSaveDelay: Duration
     @ObservationIgnored private let retryInterval: Duration
     @ObservationIgnored private var unsaved: Set<String> = []
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var oldestUnsaved: ContinuousClock.Instant?
 
     init(
         repository: NoteRepository,
         clock: @escaping () -> Date = Date.init,
         saveDelay: Duration = .milliseconds(500),
+        maxSaveDelay: Duration = .seconds(5),
         retryInterval: Duration = .seconds(10)
     ) {
         self.repository = repository
         self.clock = clock
         self.saveDelay = saveDelay
+        self.maxSaveDelay = maxSaveDelay
         self.retryInterval = retryInterval
-        let loaded = (try? repository.loadAll()) ?? []
-        notes = Dictionary(loaded.map { ($0.occurrenceID, $0) }, uniquingKeysWith: { first, _ in first })
+        isStorageAvailable = false
+        loadIfNeeded()
     }
 
     func note(for id: OccurrenceID) -> Note? { notes[id.storageKey] }
@@ -85,7 +94,9 @@ final class NoteStore {
     func flush() {
         saveTask?.cancel()
         saveTask = nil
-        guard !unsaved.isEmpty else { return }
+        oldestUnsaved = nil
+        loadIfNeeded()
+        guard isStorageAvailable, !unsaved.isEmpty else { return }
         let batch = unsaved.sorted().compactMap { notes[$0] }
         do {
             try repository.save(batch)
@@ -99,7 +110,7 @@ final class NoteStore {
 
     private func write(_ markdown: String, key: String, seriesKey: String, start: Date) {
         var note = notes[key] ?? Note(
-            occurrenceID: key, seriesKey: seriesKey, occurrenceStart: start, markdown: "", updatedAt: clock(), carriedForward: false
+            occurrenceID: key, seriesKey: seriesKey, occurrenceStart: start, markdown: "", updatedAt: .distantPast, carriedForward: false
         )
         note.markdown = markdown
         note.occurrenceStart = start
@@ -109,8 +120,22 @@ final class NoteStore {
     }
 
     private func changed(_ key: String) {
+        loadIfNeeded()
         unsaved.insert(key)
-        scheduleSave(after: saveDelay)
+        guard isStorageAvailable else { return }
+        let now = ContinuousClock.now
+        let oldest = oldestUnsaved ?? now
+        oldestUnsaved = oldest
+        scheduleSave(after: max(.zero, min(saveDelay, now.duration(to: oldest + maxSaveDelay))))
+    }
+
+    /// Notes edited in memory before the load succeeded win over the loaded ones.
+    private func loadIfNeeded() {
+        guard !isStorageAvailable, let loaded = try? repository.loadAll() else { return }
+        for note in loaded where notes[note.occurrenceID] == nil {
+            notes[note.occurrenceID] = note
+        }
+        isStorageAvailable = true
     }
 
     private func scheduleSave(after delay: Duration) {

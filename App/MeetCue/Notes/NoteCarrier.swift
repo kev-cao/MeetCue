@@ -2,11 +2,18 @@ import Foundation
 import MeetCueCore
 
 /// Moves unchecked topics from each ended occurrence of a recurring meeting to the next one
-/// (spec 7.2). The app runs it at launch, which covers occurrences that ended while it was closed,
-/// and whenever the alert scheduler wakes, which it does at every meeting's end.
+/// (spec 7.2). The alert scheduler runs it before every refresh of the overlays, which covers
+/// launch, occurrences that ended while the app was closed, every meeting's end, and calendar
+/// changes.
+///
+/// Topics carried into an occurrence that is deleted later move on once that occurrence's start
+/// passes, because its note becomes a source like any other. An occurrence that can't be found
+/// (deleted, declined or moved) may still be in progress, so its note is carried only once its
+/// stored start is `missingOccurrenceDelay` past.
 @MainActor
 final class NoteCarrier {
     static let searchDays = 60
+    static let missingOccurrenceDelay: TimeInterval = 12 * 60 * 60
 
     private let notes: NoteStore
     private let store: MeetingStore
@@ -25,16 +32,24 @@ final class NoteCarrier {
     /// ended gets its turn in the same run, so topics reach the next occurrence still to come.
     func run(now: Date) {
         guard store.access == .granted else { return }
-        var inProgress: Set<String> = []
+        let pending = notes.pendingCarryOvers(startedBefore: now)
+        guard let earliest = pending.first, let latest = pending.last else { return }
+        // Notes created during the run start before `now`, so `now` bounds every later search.
+        let from = calendar.date(byAdding: .day, value: -1, to: earliest.occurrenceStart)!
+        let to = calendar.date(byAdding: .day, value: Self.searchDays, to: max(latest.occurrenceStart, now))!
+        // Declined occurrences are skipped, so topics go to one I'll attend.
+        let all = store.meetings(from: from, to: to, filter: CalendarFilter())
+        var waiting: Set<String> = []
         while let source = notes.pendingCarryOvers(startedBefore: now)
-            .first(where: { !attempted.contains($0.occurrenceID) && !inProgress.contains($0.occurrenceID) })
+            .first(where: { !attempted.contains($0.occurrenceID) && !waiting.contains($0.occurrenceID) })
         {
             let searchEnd = calendar.date(byAdding: .day, value: Self.searchDays, to: source.occurrenceStart)!
-            // Declined occurrences are skipped, so topics go to one I'll attend.
-            let meetings = store.meetings(from: source.occurrenceStart, to: searchEnd, filter: CalendarFilter())
+            let meetings = all.filter { $0.start < searchEnd }
             let occurrence = meetings.first { $0.id.storageKey == source.occurrenceID }
-            if let occurrence, occurrence.end > now {
-                inProgress.insert(source.occurrenceID)
+            let stillRunning = occurrence.map { $0.end > now }
+                ?? (now < source.occurrenceStart.addingTimeInterval(Self.missingOccurrenceDelay))
+            if stillRunning {
+                waiting.insert(source.occurrenceID)
                 continue
             }
             attempted.insert(source.occurrenceID)

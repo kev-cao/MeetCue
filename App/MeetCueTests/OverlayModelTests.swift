@@ -442,6 +442,38 @@ final class OverlayModelTests {
         #expect(model.state(of: syncID) == .dismissed)
     }
 
+    @Test func turningAlertsOffClosesAPillQuietly() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        model.moveAlertToCorner()
+        #expect(model.pillMeetings.count == 1)
+        store.filter = CalendarFilter(alertOffCalendarIDs: ["work"])
+        model.refresh()
+        #expect(model.pillMeetings.isEmpty)
+        #expect(model.notice == nil)
+        #expect(model.state(of: syncID) == .dismissed)
+
+        store.filter = CalendarFilter()
+        at(AppFixtures.at(14, 28), model)
+        model.refresh()
+        #expect(model.alertMeetings.isEmpty)
+        #expect(model.state(of: syncID) == .dismissed)
+    }
+
+    @Test func turningAlertsOffClosesASnoozedAlertQuietly() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        model.snoozeAlert()
+        #expect(model.state(of: syncID) == .snoozed(until: AppFixtures.at(14, 29)))
+        store.filter = CalendarFilter(alertOffCalendarIDs: ["work"])
+        model.refresh()
+        #expect(model.notice == nil)
+        #expect(model.state(of: syncID) == .dismissed)
+        store.filter = CalendarFilter()
+        at(AppFixtures.at(14, 29), model)
+        #expect(model.alertMeetings.isEmpty)
+    }
+
     @Test func allDayEventsStayOutOfTheOverlays() {
         source.snapshots = [EventSnapshot(seriesKey: "holiday", title: "Holiday", start: AppFixtures.at(0, 0), end: AppFixtures.at(0, 0, day: 5), isAllDay: true, calendarID: "work")]
         let model = makeModel()
