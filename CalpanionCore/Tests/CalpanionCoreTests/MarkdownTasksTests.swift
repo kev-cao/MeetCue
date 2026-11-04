@@ -96,4 +96,15 @@ struct MarkdownTasksTests {
     @Test func blockQuotedTasksAreNotItems() {
         #expect(MarkdownTasks.items(in: "> - [ ] x").isEmpty)
     }
+
+    @Test func appendTopicKeepsCRLF() {
+        #expect(MarkdownTasks.appendTopic("Q1", to: "Intro\r\n") == "Intro\r\n- [ ] Q1")
+        #expect(MarkdownTasks.appendTopic("Q1", to: "Intro\r\nMore") == "Intro\r\nMore\r\n- [ ] Q1")
+    }
+
+    @Test func malformedMarkerIsStripped() {
+        let item = MarkdownTasks.items(in: "- [ ] Topic <!-- carried:2026-1-4 -->").first
+        #expect(item?.text == "Topic")
+        #expect(item?.carriedFrom == nil)
+    }
 }

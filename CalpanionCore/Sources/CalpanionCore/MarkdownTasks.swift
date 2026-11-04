@@ -52,9 +52,10 @@ public enum MarkdownTasks {
     }
 
     static func appending(_ newLines: [String], to markdown: String) -> String {
-        let block = newLines.joined(separator: "\n")
+        let eol = markdown.contains("\r\n") ? "\r\n" : "\n"
+        let block = newLines.joined(separator: eol)
         if markdown.isEmpty { return block }
-        return markdown.hasSuffix("\n") ? markdown + block : markdown + "\n" + block
+        return markdown.utf8.last == UInt8(ascii: "\n") ? markdown + block : markdown + eol + block
     }
 
     private struct Fence {
@@ -87,10 +88,18 @@ public enum MarkdownTasks {
     }
 
     private static func splitMarker(_ body: String) -> (text: String, carriedFrom: String?) {
-        guard let match = body.firstMatch(of: /\s*<!--\s*carried:(?<date>\d{4}-\d{2}-\d{2})\s*-->\s*$/) else {
+        guard let match = body.firstMatch(of: /\s*<!--\s*carried:(?<value>(?:(?!-->).)*?)\s*-->\s*$/) else {
             return (body.trimmingCharacters(in: .whitespaces), nil)
         }
         let text = String(body[..<match.range.lowerBound]).trimmingCharacters(in: .whitespaces)
-        return (text, String(match.output.date))
+        return (text, validDate(String(match.output.value)))
+    }
+
+    private static func validDate(_ value: String) -> String? {
+        guard let parts = value.wholeMatch(of: /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})/),
+              let year = Int(parts.output.year), let month = Int(parts.output.month), let day = Int(parts.output.day)
+        else { return nil }
+        let components = DateComponents(calendar: Calendar(identifier: .gregorian), year: year, month: month, day: day)
+        return components.isValidDate ? value : nil
     }
 }

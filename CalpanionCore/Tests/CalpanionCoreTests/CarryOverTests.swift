@@ -36,6 +36,26 @@ struct CarryOverTests {
         #expect(carry("- [x] Done", into: "Intro") == "Intro")
     }
 
+    @Test func crlfTargetKeepsCRLF() {
+        #expect(carry("- [ ] B", into: "- [ ] A\r\n") == "- [ ] A\r\n- [ ] B <!-- carried:2026-10-28 -->")
+        #expect(carry("- [ ] B", into: "- [ ] A\r\n- [ ] C") == "- [ ] A\r\n- [ ] C\r\n- [ ] B <!-- carried:2026-10-28 -->")
+    }
+
+    @Test func malformedMarkerIsReplaced() {
+        let expected = "- [ ] Topic <!-- carried:2026-10-28 -->"
+        #expect(carry("- [ ] Topic <!-- carried:2026-1-4 -->", into: "") == expected)
+        #expect(carry("- [ ] Topic <!-- carried:2026-13-45 -->", into: "") == expected)
+    }
+
+    @Test func duplicateWithinSourceCarriesOnce() {
+        #expect(carry("- [ ] Ship it\n- [ ] ship  IT", into: "") == "- [ ] Ship it <!-- carried:2026-10-28 -->")
+    }
+
+    @Test func lateEveningUsesCallersTimeZone() {
+        let result = CarryOver.carry(from: "- [ ] A", sourceDate: Fixtures.at(23, 30, month: 10, day: 28), into: "", calendar: Fixtures.calendar)
+        #expect(result == "- [ ] A <!-- carried:2026-10-28 -->")
+    }
+
     @Test func nextOccurrenceIsEarliestLaterInSameSeries() {
         let oct28Sync = Fixtures.meeting(start: oct28, series: "sync", recurring: true)
         let nov4 = Fixtures.meeting(start: Fixtures.at(14, 30), series: "sync", recurring: true)
