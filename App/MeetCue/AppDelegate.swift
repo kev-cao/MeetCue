@@ -3,19 +3,30 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
+    private var alertScheduler: AlertScheduler?
+    private var overlayController: OverlayController?
     private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // `xcodebuild test` launches the app as the test host, where a calendar-access dialog would block on the user.
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let store = MeetingStore(source: EventKitSource())
-        let model = MenuBarModel(store: store, quiet: QuietMode())
-        statusItem = StatusItemController(model: model) { dismiss in DropdownView(model: model, dismiss: dismiss) }
+        let quiet = QuietMode()
+        let model = MenuBarModel(store: store, quiet: quiet)
+        let overlays = OverlayModel(store: store, quiet: quiet, dismissed: DismissedAlerts())
+        let scheduler = AlertScheduler(model: overlays)
+        alertScheduler = scheduler
+        overlayController = OverlayController(model: overlays)
+        statusItem = StatusItemController(model: model) { dismiss in
+            DropdownView(model: model, dismiss: dismiss, simulateMeeting: { overlays.simulateMeeting() })
+        }
         observeSystemChanges {
             store.refresh()
             model.tick()
+            scheduler.refresh()
         }
         store.refresh()
+        scheduler.start()
         if store.access == .notDetermined {
             Task { await store.requestAccess() }
         }
