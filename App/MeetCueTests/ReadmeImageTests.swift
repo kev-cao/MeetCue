@@ -55,7 +55,7 @@ struct ReadmeImageTests {
         #expect(model.notesCardMeeting?.title == "Team Sync")
         let scene = ZStack(alignment: .topTrailing) {
             Wallpaper(dark: false)
-            NotesCardStack(model: model, open: { _ in }).padding(.top, 20).padding(.trailing, 8)
+            NotesCardStack(model: model).padding(.top, 20).padding(.trailing, 8)
         }
         try render(scene, size: CGSize(width: 820, height: 560), named: "notes-card")
     }

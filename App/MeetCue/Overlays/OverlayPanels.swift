@@ -33,7 +33,8 @@ final class AlertPanel: OverlayPanel {
     override var canBecomeKey: Bool { true }
 }
 
-/// The pill stack or the notes card in the top-right corner of the main screen. It never takes focus.
+/// The pill stack or the notes card, in the top-right corner of the main screen or, for the notes
+/// card, where the user drags it. It never takes focus.
 final class CornerPanel<Content: View>: OverlayPanel {
     private let hostingView: FirstClickHostingView<Content>
 
@@ -56,6 +57,23 @@ final class CornerPanel<Content: View>: OverlayPanel {
 
     static func cornerFrame(size: CGSize, below offset: CGFloat, in visible: NSRect) -> NSRect {
         NSRect(x: visible.maxX - size.width, y: visible.maxY - offset - size.height, width: size.width, height: size.height)
+    }
+
+    /// Puts the panel's top-right corner at `topRight`, kept on the screen under its center.
+    /// `margin` is the transparent border around the content, which may go past the screen's edge.
+    func place(size: CGSize, topRight: NSPoint, margin: CGFloat) {
+        let center = NSPoint(x: topRight.x - size.width / 2, y: topRight.y - size.height / 2)
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(center) }) ?? NSScreen.screens.first else { return }
+        setFrame(Self.anchoredFrame(size: size, topRight: topRight, margin: margin, in: screen.visibleFrame), display: true)
+    }
+
+    /// A frame of `size` with its top-right corner at `topRight`, moved inside `visible` grown by
+    /// `margin`. A frame taller than that keeps its top on screen.
+    static func anchoredFrame(size: CGSize, topRight: NSPoint, margin: CGFloat, in visible: NSRect) -> NSRect {
+        let bounds = visible.insetBy(dx: -margin, dy: -margin)
+        let x = min(max(topRight.x - size.width, bounds.minX), bounds.maxX - size.width)
+        let y = min(max(topRight.y - size.height, bounds.minY), bounds.maxY - size.height)
+        return NSRect(x: x, y: y, width: size.width, height: size.height)
     }
 }
 

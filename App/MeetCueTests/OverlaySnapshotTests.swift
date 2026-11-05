@@ -119,12 +119,31 @@ struct OverlaySnapshotTests {
         #expect(model.notesCardMeeting?.title == "Team Sync")
         for dark in [false, true] {
             try renderHosted(
-                ZStack { Wallpaper(dark: dark); NotesCardStack(model: model, open: { _ in }).padding(.top, 24) },
+                ZStack { Wallpaper(dark: dark); NotesCardStack(model: model).padding(.top, 24) },
                 size: Self.cardSize,
                 dark: dark,
                 named: dark ? "notes-card-dark" : "notes-card-light"
             )
         }
+    }
+
+    @Test func rendersCompactNotesCard() throws {
+        let now = AppFixtures.at(14, 40)
+        notes.setMarkdown(Self.sampleNote, for: MeetingMapper.meeting(from: teamSync))
+        let model = model(at: now, events: [teamSync])
+        let layout = NotesCardLayout()
+        layout.isCompact = true
+        for dark in [false, true] {
+            try renderHosted(
+                ZStack { Wallpaper(dark: dark); NotesCardStack(model: model, layout: layout).padding(.top, 24) },
+                size: Self.cornerSize,
+                dark: dark,
+                named: dark ? "notes-card-compact-dark" : "notes-card-compact-light"
+            )
+        }
+        let compact = NSHostingView(rootView: NotesCardCompact(model: model, meeting: model.notesCardMeeting!, layout: layout).environment(\.solidGlass, true)).fittingSize
+        #expect(compact.width == NotesCardCompact.width)
+        #expect(compact.height == NotesCardCompact.height)
     }
 
     /// The panel fits the card: short notes make a short card, and long ones scroll inside a capped height.
@@ -133,7 +152,7 @@ struct OverlaySnapshotTests {
         let meeting = MeetingMapper.meeting(from: teamSync)
         notes.setMarkdown("- [ ] Budget", for: meeting)
         let model = model(at: now, events: [teamSync])
-        let card = { NotesCardContent(model: model, meeting: meeting, open: { _ in }).fixedSize(horizontal: false, vertical: true).environment(\.solidGlass, true) }
+        let card = { NotesCardContent(model: model, meeting: meeting).fixedSize(horizontal: false, vertical: true).environment(\.solidGlass, true) }
         let short = NSHostingView(rootView: card()).fittingSize
         notes.setMarkdown((1...40).map { "- [ ] Topic \($0)" }.joined(separator: "\n"), for: meeting)
         let long = NSHostingView(rootView: card()).fittingSize
@@ -149,6 +168,18 @@ struct OverlaySnapshotTests {
         let visible = NSRect(x: 0, y: 0, width: 1440, height: 875)
         let frame = CornerPanel<EmptyView>.cornerFrame(size: CGSize(width: 392, height: 300), below: 80, in: visible)
         #expect(frame == NSRect(x: 1048, y: 495, width: 392, height: 300))
+    }
+
+    /// A dragged card stays where it was put, and can't leave the screen except for its transparent margin.
+    @Test func draggedCardStaysOnScreen() {
+        let visible = NSRect(x: 0, y: 0, width: 1440, height: 875)
+        let size = CGSize(width: 392, height: 300)
+        let frame = { (point: NSPoint) in CornerPanel<EmptyView>.anchoredFrame(size: size, topRight: point, margin: 16, in: visible) }
+        #expect(frame(NSPoint(x: 900, y: 600)) == NSRect(x: 508, y: 300, width: 392, height: 300))
+        #expect(frame(NSPoint(x: 100, y: 1200)) == NSRect(x: -16, y: 591, width: 392, height: 300))
+        #expect(frame(NSPoint(x: 2000, y: 50)) == NSRect(x: 1064, y: -16, width: 392, height: 300))
+        let tall = CornerPanel<EmptyView>.anchoredFrame(size: CGSize(width: 392, height: 1000), topRight: NSPoint(x: 900, y: 400), margin: 16, in: visible)
+        #expect(tall.maxY == 891)
     }
 
     static let cardSize = CGSize(width: 720, height: 520)

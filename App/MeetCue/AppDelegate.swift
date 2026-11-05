@@ -48,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let scheduler = AlertScheduler(model: overlays)
         scheduler.beforeRefresh = { carrier.run(now: Date()) }
         alertScheduler = scheduler
-        overlayController = OverlayController(model: overlays, openMeeting: { calendarWindow.show(selecting: $0) })
+        overlayController = OverlayController(model: overlays)
         let hotKeys = GlobalHotKeys()
         hotKeys.register(keyCode: kVK_ANSI_N) { overlays.toggleNotesCard() }
         hotKeys.register(keyCode: kVK_ANSI_O) { calendarWindow.show() }
