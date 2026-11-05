@@ -37,6 +37,7 @@ final class MenuBarModel {
 
     func tick() {
         now = clock()
+        quiet.clearIfExpired(at: now)
     }
 
     /// Turns quiet mode on with `preset`, or off for nil, measured from the current time.

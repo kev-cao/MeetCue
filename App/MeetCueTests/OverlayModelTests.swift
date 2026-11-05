@@ -51,6 +51,16 @@ final class OverlayModelTests {
         #expect(model.timeRange(for: model.alertMeetings[0]) == "2:30 – 3:00 PM")
     }
 
+    @Test func refreshClearsQuietModeOnceItHasExpired() {
+        let model = makeModel()
+        quiet.turnOn(.oneHour, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        at(AppFixtures.at(13, 59), model)
+        #expect(quiet.preset == .oneHour)
+        at(AppFixtures.at(14, 0), model)
+        #expect(quiet.until == nil)
+        #expect(quiet.preset == nil)
+    }
+
     @Test func quietModeSkipsTheAlertForGood() {
         let model = makeModel()
         quiet.turnOn(.oneHour, now: AppFixtures.at(13, 29), calendar: AppFixtures.calendar)
@@ -145,11 +155,37 @@ final class OverlayModelTests {
         #expect(model.state(of: syncID) == .done)
     }
 
-    @Test func joiningFromOutsideTheOverlays() {
+    @Test func joiningFromOutsideTheOverlaysBeforeAlertTimeOnlyOpensTheLink() {
         let model = makeModel()
         model.join(store.meetings[0])
         #expect(opened == [URL(string: "https://acme.zoom.us/j/1")!])
+        #expect(model.state(of: syncID) == .waiting)
+        at(AppFixtures.at(14, 28), model)
+        #expect(model.alertMeetings.map(\.title) == ["Team Sync"])
+    }
+
+    @Test func joiningFromOutsideTheOverlaysActsLikeTheAlertsJoinOnceTheAlertIsUp() {
+        let model = makeModel()
+        at(AppFixtures.at(14, 28), model)
+        model.join(store.meetings[0])
+        #expect(opened == [URL(string: "https://acme.zoom.us/j/1")!])
         #expect(model.state(of: syncID) == .done)
+    }
+
+    @Test func joiningAStartedMeetingFromOutsideTheOverlaysActsLikeTheAlertsJoin() {
+        let model = makeModel()
+        notes.setMarkdown("- [ ] Budget", for: store.meetings[0])
+        settings.showNotesAtStart = false
+        quiet.turnOn(.untilTurnedOff, now: now, calendar: AppFixtures.calendar)
+        at(AppFixtures.at(14, 35), model)
+        #expect(model.state(of: syncID) == .done)
+        model.join(store.meetings[0])
+        #expect(opened.count == 1)
+        #expect(model.state(of: syncID) == .notesCard)
+    }
+
+    @Test func joiningAMeetingTheOverlaysDontTrackOnlyOpensItsLink() {
+        let model = makeModel()
         let elsewhere = Meeting(
             id: OccurrenceID(seriesKey: "elsewhere", originalDate: nil),
             title: "Elsewhere",

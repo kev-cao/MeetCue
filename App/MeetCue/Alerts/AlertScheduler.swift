@@ -58,6 +58,7 @@ final class AlertScheduler {
             _ = model.quiet.until
             _ = model.timing
             _ = model.settings.notesPolicy(hasNotes: false)
+            _ = model.settings.carryOver
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.refresh()

@@ -22,9 +22,10 @@ final class NoteExporterTests {
         let store = MeetingStore(source: source, calendar: AppFixtures.calendar)
         store.refresh()
         let exporter = NoteExporter(notes: notes, store: store, calendar: AppFixtures.calendar, locale: Locale(identifier: "en_US"))
-        let count = try exporter.export(to: folder)
+        let result = exporter.export(to: folder)
         let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
-        #expect(names.count == count)
+        #expect(names.count == result.written)
+        #expect(result.failures.isEmpty)
         return try Dictionary(uniqueKeysWithValues: names.map { ($0, try String(contentsOf: folder.appending(path: $0), encoding: .utf8)) })
     }
 
@@ -60,5 +61,30 @@ final class NoteExporterTests {
         notes.setMarkdown("New", for: MeetingMapper.meeting(from: sync))
         let files = try export()
         #expect(Set(files.keys) == ["2020-03-02 Kickoff.md", "2026-11-04 Team Sync.md"])
+    }
+
+    @Test func findsAOneOffMeetingThatMovedLater() throws {
+        let planned = AppFixtures.event(start: AppFixtures.at(14, 30, day: 10))
+        notes.setMarkdown("Moved", for: MeetingMapper.meeting(from: planned))
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30, day: 20))]
+        let files = try export()
+        #expect(files["2026-11-20 Team Sync.md"]?.hasPrefix("# Team Sync\n\n") == true)
+        #expect(files.count == 1)
+    }
+
+    @Test func keepsWritingAfterAFileFails() throws {
+        let first = AppFixtures.event(start: AppFixtures.at(9, 0), series: "a")
+        let second = AppFixtures.event("Standup", start: AppFixtures.at(16, 0), series: "b")
+        source.snapshots = [first, second]
+        notes.setMarkdown("First", for: MeetingMapper.meeting(from: first))
+        notes.setMarkdown("Second", for: MeetingMapper.meeting(from: second))
+        try FileManager.default.createDirectory(at: folder.appending(path: "2026-11-04 Team Sync.md"), withIntermediateDirectories: true)
+        let store = MeetingStore(source: source, calendar: AppFixtures.calendar)
+        store.refresh()
+        let result = NoteExporter(notes: notes, store: store, calendar: AppFixtures.calendar).export(to: folder)
+        #expect(result.written == 1)
+        #expect(result.total == 2)
+        #expect(result.failures.map(\.fileName) == ["2026-11-04 Team Sync.md"])
+        #expect(try String(contentsOf: folder.appending(path: "2026-11-04 Standup.md"), encoding: .utf8).hasSuffix("\n\nSecond\n"))
     }
 }

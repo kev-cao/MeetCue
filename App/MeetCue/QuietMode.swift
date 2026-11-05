@@ -76,6 +76,11 @@ final class QuietMode {
         storage.preset = nil
     }
 
+    /// Turns quiet mode off once its end has passed, so every reader sees it as off.
+    func clearIfExpired(at now: Date) {
+        if let until, now >= until { turnOff() }
+    }
+
     func isOn(at now: Date) -> Bool {
         until.map { now < $0 } ?? false
     }

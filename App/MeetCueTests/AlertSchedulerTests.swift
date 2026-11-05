@@ -84,6 +84,19 @@ struct AlertSchedulerTests {
         #expect(await eventually { model.alertMeetings.count == 1 })
     }
 
+    @Test func turningCarryOverOnRunsTheRefreshHook() async {
+        let settings = AppSettings(storage: InMemorySettingsStorage())
+        settings.carryOver = false
+        let (_, model) = makeModel(settings: settings) { AppFixtures.at(14, 0) }
+        let scheduler = AlertScheduler(model: model)
+        var refreshes = 0
+        scheduler.beforeRefresh = { refreshes += 1 }
+        scheduler.start()
+        #expect(refreshes == 1)
+        settings.carryOver = true
+        #expect(await eventually { refreshes == 2 })
+    }
+
     @Test func settlesWhenTheTimerFires() async {
         let (store, model) = makeModel(clock: Date.init)
         source.snapshots = [AppFixtures.event(start: Date().addingTimeInterval(AlertTiming.standard.leadTime + 1.5))]

@@ -5,7 +5,9 @@ import Testing
 
 @MainActor
 final class FakeLoginItem: LoginItemService {
-    struct Failure: Error {}
+    struct Failure: LocalizedError {
+        var errorDescription: String? { "Operation not permitted." }
+    }
 
     var status: SMAppService.Status = .notRegistered
     var statusAfterRegister: SMAppService.Status = .enabled
@@ -66,10 +68,22 @@ struct LaunchAtLoginTests {
         let login = LaunchAtLogin(service: service)
         login.setOn(true)
         #expect(!login.isOn)
-        #expect(login.error == "Couldn't turn on launch at login.")
+        #expect(login.error == "Couldn't turn on launch at login. Operation not permitted.")
         service.fails = false
         login.setOn(true)
         #expect(login.isOn)
+        #expect(login.error == nil)
+    }
+
+    @Test func refreshClearsTheErrorWhenTheStatusChanged() {
+        service.fails = true
+        let login = LaunchAtLogin(service: service)
+        login.setOn(true)
+        #expect(login.error != nil)
+        login.refresh()
+        #expect(login.error != nil)
+        service.status = .requiresApproval
+        login.refresh()
         #expect(login.error == nil)
     }
 }

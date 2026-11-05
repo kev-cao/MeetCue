@@ -86,7 +86,26 @@ final class SettingsModelTests {
         model.exportNotes(to: folder)
         #expect(model.exportStatus == "Exported 1 note to \(folder.lastPathComponent).")
         model.exportNotes(to: folder.appending(path: "missing"))
-        #expect(model.exportStatus?.hasPrefix("Couldn't export the notes.") == true)
+        #expect(model.exportStatus?.hasPrefix("Exported 0 of 1 notes. Couldn't write 2026-11-04 Team Sync.md: ") == true)
+    }
+
+    @Test func exportNamesTheFirstFailureAndCountsTheRest() throws {
+        let other = AppFixtures.event("Standup", start: AppFixtures.at(16, 0), series: "b")
+        source.snapshots += [other]
+        let model = makeModel()
+        notes.setMarkdown("- [ ] Budget", for: store.meetings[0])
+        notes.setMarkdown("Notes", for: store.meetings[1])
+        model.exportNotes(to: folder.appending(path: "missing"))
+        #expect(model.exportStatus?.hasPrefix("Exported 0 of 2 notes. Couldn't write 2026-11-04 Team Sync.md and 1 more: ") == true)
+    }
+
+    @Test func exportReportsPartialSuccess() throws {
+        let model = makeModel()
+        try FileManager.default.createDirectory(at: folder.appending(path: "2026-11-04 Team Sync.md"), withIntermediateDirectories: true)
+        notes.setMarkdown("- [ ] Budget", for: store.meetings[0])
+        notes.setMarkdown("Other", for: MeetingMapper.meeting(from: AppFixtures.event("Gone", start: AppFixtures.at(10, 0), series: "gone")))
+        model.exportNotes(to: folder)
+        #expect(model.exportStatus?.hasPrefix("Exported 1 of 2 notes. Couldn't write ") == true)
     }
 
     @Test func refreshReadsLaunchAtLoginAgain() {

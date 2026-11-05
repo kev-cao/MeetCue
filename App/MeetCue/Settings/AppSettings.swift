@@ -10,7 +10,7 @@ protocol SettingsStorage: AnyObject {
 
 extension UserDefaults: SettingsStorage {}
 
-/// A built-in macOS sound, played once when the full-screen alert appears.
+/// A built-in macOS sound, played when the full-screen alert appears, and again when a snooze ends.
 enum AlertSound: String, CaseIterable, Identifiable {
     case none, glass, hero, ping, purr, submarine
 

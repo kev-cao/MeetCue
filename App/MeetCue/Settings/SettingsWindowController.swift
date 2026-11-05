@@ -23,6 +23,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         NSApp.activate()
     }
 
+    func windowDidBecomeKey(_ notification: Notification) {
+        model.refresh()
+    }
+
     func windowWillClose(_ notification: Notification) {
         dock.closed(.settings)
     }

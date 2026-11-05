@@ -10,7 +10,7 @@ final class OverlayController {
     private let model: OverlayModel
     private var alertPanels: [AlertPanel] = []
     private var alertPanelDisplays: AlertDisplays?
-    private var alertIDs: Set<OccurrenceID> = []
+    private var shownStates: [OccurrenceID: OverlayState] = [:]
     private let pillPanel: CornerPanel<PillStack>
     private let cardPanel: CornerPanel<NotesCardStack>
     private let cardLayout = NotesCardLayout()
@@ -33,10 +33,11 @@ final class OverlayController {
         displays == .main ? Array(screens.prefix(1)) : screens
     }
 
-    /// Whether the alert has a meeting it didn't have at the last sync. The sound plays then, and
-    /// not when the panels are rebuilt for a display change.
-    static func alertGainedMeetings(from shown: Set<OccurrenceID>, to wanted: Set<OccurrenceID>) -> Bool {
-        !wanted.subtracting(shown).isEmpty
+    /// Whether a meeting entered the alert from waiting or a snooze, which is when the sound
+    /// plays. `shown` and `wanted` hold the meetings in the alert or as pills at the last sync and
+    /// now. Expanding a pill and rebuilding the panels for a display change are silent.
+    static func alertChimes(from shown: [OccurrenceID: OverlayState], to wanted: [OccurrenceID: OverlayState]) -> Bool {
+        wanted.contains { id, state in state == .alert && shown[id] != .alert && shown[id] != .pill }
     }
 
     /// Caps Lock, keypad, function and help flags don't count as modifiers.
@@ -84,10 +85,13 @@ final class OverlayController {
 
     private func syncAlert() {
         let ids = Set(model.alertMeetings.map(\.id))
-        if Self.alertGainedMeetings(from: alertIDs, to: ids) {
+        var states: [OccurrenceID: OverlayState] = [:]
+        for meeting in model.alertMeetings { states[meeting.id] = .alert }
+        for meeting in model.pillMeetings { states[meeting.id] = .pill }
+        if Self.alertChimes(from: shownStates, to: states) {
             model.settings.alertSound.play()
         }
-        alertIDs = ids
+        shownStates = states
         let displays = model.settings.alertDisplays
         if !ids.isEmpty && (alertPanels.isEmpty || alertPanelDisplays != displays) {
             closeAlert()

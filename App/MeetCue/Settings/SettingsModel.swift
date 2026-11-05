@@ -109,15 +109,17 @@ final class SettingsModel {
     }
 
     func exportNotes(to folder: URL) {
-        do {
-            let count = try NoteExporter(notes: notes, store: store, calendar: calendar).export(to: folder)
-            exportStatus = switch count {
-            case 0: "There are no notes to export."
-            case 1: "Exported 1 note to \(folder.lastPathComponent)."
-            default: "Exported \(count) notes to \(folder.lastPathComponent)."
-            }
-        } catch {
-            exportStatus = "Couldn't export the notes. \(error.localizedDescription)"
+        let result = NoteExporter(notes: notes, store: store, calendar: calendar).export(to: folder)
+        if let failed = result.failures.first {
+            let others = result.failures.count - 1
+            let more = others > 0 ? " and \(others) more" : ""
+            exportStatus = "Exported \(result.written) of \(result.total) notes. Couldn't write \(failed.fileName)\(more): \(failed.reason)"
+            return
+        }
+        exportStatus = switch result.written {
+        case 0: "There are no notes to export."
+        case 1: "Exported 1 note to \(folder.lastPathComponent)."
+        default: "Exported \(result.written) notes to \(folder.lastPathComponent)."
         }
     }
 }

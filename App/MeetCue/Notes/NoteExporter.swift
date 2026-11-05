@@ -12,26 +12,43 @@ struct NoteExporter {
     var calendar: Calendar = .autoupdatingCurrent
     var locale: Locale = .autoupdatingCurrent
 
-    /// Returns the number of files written.
-    func export(to folder: URL) throws -> Int {
+    struct Result: Equatable {
+        struct Failure: Equatable {
+            let fileName: String
+            let reason: String
+        }
+
+        var written = 0
+        var failures: [Failure] = []
+        var total: Int { written + failures.count }
+    }
+
+    /// Writes every file it can; a file that fails to write is reported in the result and doesn't stop the rest.
+    func export(to folder: URL) -> Result {
         let exported = notes.notes.values
             .filter { !$0.markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             .sorted { ($0.occurrenceStart, $0.occurrenceID) < ($1.occurrenceStart, $1.occurrenceID) }
-        guard let first = exported.first, let last = exported.last else { return 0 }
+        guard let first = exported.first, let last = exported.last else { return Result() }
         let meetings = meetings(
             from: calendar.date(byAdding: .day, value: -1, to: first.occurrenceStart)!,
-            to: calendar.date(byAdding: .day, value: 1, to: last.occurrenceStart)!
+            to: calendar.date(byAdding: .day, value: NoteCarrier.searchDays, to: last.occurrenceStart)!
         )
         let names = NoteExport.fileNames(for: exported.map { note in
             let meeting = meetings[note.occurrenceID]
             return NoteExport.baseName(date: meeting?.start ?? note.occurrenceStart, title: meeting?.title, calendar: calendar)
         })
+        var result = Result()
         for (note, name) in zip(exported, names) {
             var text = (meetings[note.occurrenceID].map(header) ?? "") + note.markdown
             if !text.hasSuffix("\n") { text += "\n" }
-            try Data(text.utf8).write(to: folder.appendingPathComponent(name), options: .atomic)
+            do {
+                try Data(text.utf8).write(to: folder.appendingPathComponent(name), options: .atomic)
+                result.written += 1
+            } catch {
+                result.failures.append(Result.Failure(fileName: name, reason: error.localizedDescription))
+            }
         }
-        return exported.count
+        return result
     }
 
     /// Meetings by storage key, from every calendar, declined ones included. EventKit reads at most

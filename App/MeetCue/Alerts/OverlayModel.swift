@@ -132,13 +132,21 @@ final class OverlayModel {
         apply(to: [meeting] + others) { $0.id == id ? .join : .dismiss(afterStart: now >= $0.start) }
     }
 
-    /// Joins `meeting` from outside the overlays, as ⌥⌘J does: like the alert's Join when the
-    /// overlays track the meeting, or by opening its link.
+    /// Joins `meeting` from outside the overlays, as ⌥⌘J does: like the alert's Join once the
+    /// meeting's alert is up or the meeting has started, and otherwise by only opening its link, so
+    /// an early join doesn't cancel the alert.
     func join(_ meeting: Meeting) {
-        if entries[meeting.id] != nil {
+        if let entry = entries[meeting.id], Self.isAlerting(entry.state) || clock() >= meeting.start {
             join(meeting.id)
         } else if let link = meeting.joinLink {
             openURL(link.url)
+        }
+    }
+
+    private static func isAlerting(_ state: OverlayState) -> Bool {
+        switch state {
+        case .alert, .pill, .snoozed: true
+        case .waiting, .dismissed, .notesCard, .hidden, .done: false
         }
     }
 
@@ -194,6 +202,7 @@ final class OverlayModel {
     /// Brings every entry up to date with the store's meetings and the clock, then works out the next wake.
     func refresh() {
         let now = clock()
+        quiet.clearIfExpired(at: now)
         dismissed.prune(before: calendar.startOfDay(for: now))
 
         var next: [OccurrenceID: Entry] = [:]

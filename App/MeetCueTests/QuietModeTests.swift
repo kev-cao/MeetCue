@@ -33,4 +33,19 @@ struct QuietModeTests {
         #expect(afterOff.until == nil)
         #expect(afterOff.preset == nil)
     }
+
+    @Test func readsAsOffOnceItHasExpired() {
+        let quiet = QuietMode(storage: storage)
+        quiet.turnOn(.oneHour, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        quiet.clearIfExpired(at: AppFixtures.at(13, 59))
+        #expect(quiet.until == AppFixtures.at(14, 0))
+        #expect(quiet.preset == .oneHour)
+        quiet.clearIfExpired(at: AppFixtures.at(14, 0))
+        #expect(quiet.until == nil)
+        #expect(quiet.preset == nil)
+        #expect(QuietMode(storage: storage).until == nil)
+        quiet.turnOn(.untilTurnedOff, now: AppFixtures.at(13, 0), calendar: AppFixtures.calendar)
+        quiet.clearIfExpired(at: AppFixtures.at(23, 0))
+        #expect(quiet.until == .distantFuture)
+    }
 }

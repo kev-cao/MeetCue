@@ -40,7 +40,9 @@ final class LaunchAtLogin {
     var needsApproval: Bool { status == .requiresApproval }
 
     func refresh() {
-        status = service.status
+        let current = service.status
+        if current != status { error = nil }
+        status = current
     }
 
     func setOn(_ on: Bool) {
@@ -52,9 +54,10 @@ final class LaunchAtLogin {
             }
             error = nil
         } catch {
-            self.error = on ? "Couldn't turn on launch at login." : "Couldn't turn off launch at login."
+            let action = on ? "turn on" : "turn off"
+            self.error = "Couldn't \(action) launch at login. \(error.localizedDescription)"
         }
-        refresh()
+        status = service.status
     }
 
     func openSystemSettings() {
