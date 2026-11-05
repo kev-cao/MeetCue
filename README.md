@@ -8,13 +8,14 @@ MeetCue is in early development (version 0.1.0). It isn't on the App Store; you 
 
 ## What it does today
 
-- **Your next meeting in the menu bar.** More than an hour out it shows the start time (`2:30 PM · Team Sync`). Within the hour it counts down (`in 24m`), and during the meeting it shows the time left (`12m left`, or `1h 20m left` for long ones). Titles longer than 10 characters scroll as the meeting approaches.
+- **Your next meeting in the menu bar.** More than an hour out it shows the start time (`2:30 PM · Team Sync`). Within the hour it counts down (`in 24m`), and during the meeting it shows the time left (`12m left`, or `1h 20m left` for long ones). Titles longer than 10 characters scroll as the meeting approaches. Press ⌥⌘J from any app to join the meeting it shows.
 - **A dropdown with the details.** The meeting's time, location and video service together (`Room 4B · Google Meet`), and a **Join meeting** button for Zoom, Google Meet and Microsoft Teams links. Links found in the event's URL, location or notes all work.
 - **A full-screen alert before each meeting.** Two minutes before the start it covers every display with a live countdown, Join, Snooze and Dismiss. Move it to the corner and it shrinks to a countdown pill.
 - **Notes on any meeting.** Open MeetCue (⌥⌘O) for a day, week or month calendar, pick a meeting, and write Markdown notes. Task items (`- [ ] Budget for Q1`) are topics to bring up; add one quickly from the dropdown's **Add a topic** field. Topics you didn't tick off move to the next occurrence of a recurring meeting, tagged "Carried over".
 - **A notes card when the meeting starts.** It shows the meeting's notes in the corner, with checkboxes you can tick during the call. Hide it with ×; ⌥⌘N or **Show notes card** brings it back.
 - **Quiet mode.** Turn it on for an hour, until the end of the day, or until you turn it off. The menu bar shows a moon while it's on, and the full-screen alert stays away; the notes card still appears.
 - **Follows your Mac.** It reads every calendar you've added to macOS Calendar (iCloud, Google, Exchange), skips meetings you've declined, and follows the macOS 24-hour time setting.
+- **Settings.** Open them from the dropdown's **Settings…** item, or press ⌘, while the dropdown or a MeetCue window is open. Choose the alert's lead time, snooze length, sound and displays; when the notes card appears; which calendars show and which alert; what the menu bar shows and how titles scroll; whether notes open in Preview or Markdown; light or dark mode and how opaque the glass is. Turn on launch at login, and export every note as a Markdown file.
 
 <p>
   <img src=".github/assets/notes-card.png" alt="The notes card in the corner during a meeting, with a carried-over topic and a ticked one" width="49%">
@@ -23,7 +24,6 @@ MeetCue is in early development (version 0.1.0). It isn't on the App Store; you 
 
 ## Coming next
 
-- A Settings window: lead time, snooze length, notes card options, which calendars alert, and exporting notes as Markdown files.
 - An optional Google Calendar connection for richer meeting details.
 
 ## Requirements
@@ -69,11 +69,11 @@ MeetCue is in early development (version 0.1.0). It isn't on the App Store; you 
    open /Applications/MeetCue.app
    ```
 
-MeetCue has no Dock icon while the calendar window is closed; look for it in the menu bar. On first launch macOS asks for access to your calendars. Click **Allow**, and your next meeting appears. If you denied access, open the dropdown and click **Open Privacy Settings**, or go to System Settings › Privacy & Security › Calendars.
+MeetCue has no Dock icon while its windows are closed; look for it in the menu bar. On first launch macOS asks for access to your calendars. Click **Allow**, and your next meeting appears. If you denied access, open the dropdown and click **Open Privacy Settings**, or go to System Settings › Privacy & Security › Calendars.
 
 To quit, open the dropdown and click **Quit** (or press ⌘Q while it's open).
 
-**Start at login:** add `MeetCue.app` in System Settings › General › Login Items.
+**Start at login:** turn on **Launch at login** in MeetCue's Settings › General.
 
 ### Calendar access after rebuilding
 
@@ -120,11 +120,11 @@ TEST_RUNNER_MEETCUE_README_DIR="$PWD/.github/assets" xcodebuild -project MeetCue
 ```
 project.yml                XcodeGen spec for the app and its tests
 App/MeetCue/               the app: EventKit loading, menu bar item and dropdown, alerts and
-                           the notes card, notes storage, the calendar window
+                           the notes card, notes storage, the calendar window, settings
 App/MeetCueTests/          app tests
 MeetCueCore/               Swift package with the decision logic and its tests:
                            meetings, video links, filtering, menu bar text,
-                           alert rules, Markdown topics and carry-over
+                           alert rules, Markdown topics, carry-over and export names
 ```
 
 ## Privacy
