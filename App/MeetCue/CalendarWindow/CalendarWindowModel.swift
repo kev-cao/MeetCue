@@ -192,8 +192,11 @@ final class CalendarWindowModel {
 
     // MARK: Sidebar
 
-    var calendarGroups: [CalendarGroup] {
-        Dictionary(grouping: store.calendars, by: \.account)
+    var calendarGroups: [CalendarGroup] { Self.groups(of: store.calendars) }
+
+    /// Calendars by account, both in alphabetical order.
+    static func groups(of calendars: [CalendarInfo]) -> [CalendarGroup] {
+        Dictionary(grouping: calendars, by: \.account)
             .map { CalendarGroup(account: $0.key, calendars: $0.value.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }) }
             .sorted { $0.account.localizedStandardCompare($1.account) == .orderedAscending }
     }
