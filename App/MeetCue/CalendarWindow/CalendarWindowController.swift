@@ -2,33 +2,40 @@ import AppKit
 import MeetCueCore
 import SwiftUI
 
-/// The calendar window. The app shows a Dock icon while it's open and goes back to being a menu
-/// bar app when it closes.
+/// The calendar window. The app shows a Dock icon while it's open. Each time it opens, the notes
+/// editor starts in the tab chosen in Settings.
 @MainActor
 final class CalendarWindowController: NSObject, NSWindowDelegate {
     private let model: CalendarWindowModel
+    private let settings: AppSettings
+    private let dock: DockPresence
     private var window: NSWindow?
 
-    init(model: CalendarWindowModel) {
+    init(model: CalendarWindowModel, settings: AppSettings, dock: DockPresence) {
         self.model = model
+        self.settings = settings
+        self.dock = dock
     }
 
     /// Opens the window, on `meeting`'s day with it selected when given.
     func show(selecting meeting: Meeting? = nil) {
         let window = window ?? makeWindow()
         self.window = window
+        if !window.isVisible && !window.isMiniaturized {
+            model.editorMode = settings.notesEditorMode
+        }
         if let meeting {
             model.show(meeting)
         } else {
             model.reload()
         }
-        NSApp.setActivationPolicy(.regular)
+        dock.opened(.calendar)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        dock.closed(.calendar)
     }
 
     private func makeWindow() -> NSWindow {
