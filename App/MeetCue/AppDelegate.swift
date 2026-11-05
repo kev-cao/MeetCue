@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlayController: OverlayController?
     private var notes: NoteStore?
     private var calendarWindow: CalendarWindowController?
+    private var settingsWindow: SettingsWindowController?
     private var hotKeys: GlobalHotKeys?
     private var observers: [NSObjectProtocol] = []
 
@@ -29,6 +30,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dock: dock
         )
         self.calendarWindow = calendarWindow
+        let settingsWindow = SettingsWindowController(
+            model: SettingsModel(
+                settings: settings,
+                quiet: quiet,
+                store: store,
+                visibility: visibility,
+                notes: notes,
+                launchAtLogin: LaunchAtLogin(),
+                notesFile: try? SwiftDataNoteRepository.defaultURL()
+            ),
+            dock: dock
+        )
+        self.settingsWindow = settingsWindow
+        applyAppearance(settings)
         let carrier = NoteCarrier(notes: notes, store: store, settings: settings)
         let scheduler = AlertScheduler(model: overlays)
         scheduler.beforeRefresh = { carrier.run(now: Date()) }
@@ -48,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 dismiss: dismiss,
                 overlays: overlays,
                 openMeetCue: { calendarWindow.show() },
+                openSettings: { settingsWindow.show() },
                 simulateMeeting: { overlays.simulateMeeting() }
             )
         }
@@ -65,6 +81,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         notes?.flush()
+    }
+
+    /// The app menu's Settings item. Does nothing under tests, where the app isn't set up.
+    func showSettings() {
+        settingsWindow?.show()
+    }
+
+    /// Sets the app's appearance from the settings now and whenever it changes.
+    private func applyAppearance(_ settings: AppSettings) {
+        withObservationTracking {
+            NSApp.appearance = settings.appearance.appearance
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.applyAppearance(settings) }
+        }
     }
 
     private static func noteRepository() -> NoteRepository {

@@ -9,6 +9,8 @@ struct DropdownView: View {
     var overlays: OverlayModel?
     /// Shows "Open MeetCue" when set.
     var openMeetCue: (@MainActor () -> Void)?
+    /// Shows "Settings…" when set.
+    var openSettings: (@MainActor () -> Void)?
     var simulateMeeting: (@MainActor () -> Void)?
 
     var body: some View {
@@ -51,6 +53,13 @@ struct DropdownView: View {
                     dismiss()
                 }
                 .keyboardShortcut("o", modifiers: [.command, .option])
+            }
+            if let openSettings {
+                MenuRow(title: "Settings…", systemImage: "gearshape", shortcut: "⌘,") {
+                    dismiss()
+                    openSettings()
+                }
+                .keyboardShortcut(",", modifiers: .command)
             }
             Button {
                 NSApp.terminate(nil)

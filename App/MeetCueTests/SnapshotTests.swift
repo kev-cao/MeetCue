@@ -46,7 +46,7 @@ struct SnapshotTests {
             clock: { AppFixtures.at(14, 6) },
             calendar: AppFixtures.calendar
         )
-        let dropdown = DropdownView(model: model, dismiss: {}, overlays: overlays, openMeetCue: {})
+        let dropdown = DropdownView(model: model, dismiss: {}, overlays: overlays, openMeetCue: {}, openSettings: {})
             .background(Color(white: 0.96))
         try renderHosted(dropdown, size: CGSize(width: 300, height: 440), named: "dropdown-notes")
     }
