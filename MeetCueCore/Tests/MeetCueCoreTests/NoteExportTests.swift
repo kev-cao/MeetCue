@@ -12,7 +12,7 @@ struct NoteExportTests {
     }
 
     @Test func fallsBackToTheDateAlone() {
-        for title in [nil, "", "   ", "...", "\n"] {
+        for title in [nil, "", "   ", "\n"] {
             #expect(NoteExport.baseName(date: Fixtures.at(14, 30), title: title, calendar: Fixtures.calendar) == "2026-11-04")
         }
     }
@@ -20,7 +20,7 @@ struct NoteExportTests {
     @Test func replacesCharactersAFileNameCantHold() {
         let name = NoteExport.baseName(date: Fixtures.at(14, 30), title: "Q1/Q2: plan\nreview\t ", calendar: Fixtures.calendar)
         #expect(name == "2026-11-04 Q1-Q2- plan review")
-        #expect(NoteExport.baseName(date: Fixtures.at(14, 30), title: ".hidden", calendar: Fixtures.calendar) == "2026-11-04 hidden")
+        #expect(NoteExport.baseName(date: Fixtures.at(14, 30), title: ".hidden", calendar: Fixtures.calendar) == "2026-11-04 .hidden")
     }
 
     @Test func shortensLongTitlesWithoutSplittingCharacters() {

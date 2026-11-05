@@ -8,7 +8,7 @@ public enum NoteExport {
 
     /// "2026-11-04 Team Sync", or "2026-11-04" when there's no title or nothing of it a file name
     /// can keep. Slashes and colons become dashes, line breaks and other control characters become
-    /// spaces, runs of spaces collapse, and leading dots go so the file isn't hidden.
+    /// spaces, and runs of spaces collapse.
     public static func baseName(date: Date, title: String?, calendar: Calendar) -> String {
         let day = CarryOver.dayString(date, calendar: calendar)
         let cleaned = cleanTitle(title ?? "")
@@ -39,8 +39,7 @@ public enum NoteExport {
             }
             return character
         })
-        var words = replaced.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        while words.hasPrefix(".") { words.removeFirst() }
+        let words = replaced.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         var kept = ""
         for character in words.trimmingCharacters(in: .whitespaces) {
             guard kept.utf8.count + String(character).utf8.count <= maxTitleBytes else { break }
