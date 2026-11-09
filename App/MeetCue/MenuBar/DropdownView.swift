@@ -42,7 +42,7 @@ struct DropdownView: View {
                 } label: {
                     Label("Simulate meeting in 2 minutes", systemImage: "bell.badge")
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
+                        .menuItemHighlight()
                 }
                 .buttonStyle(.plain)
             }
@@ -66,7 +66,7 @@ struct DropdownView: View {
             } label: {
                 Text("Quit")
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    .menuItemHighlight()
             }
             .buttonStyle(.plain)
             .keyboardShortcut("q")
@@ -186,7 +186,7 @@ private struct MenuRow: View {
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
             }
-            .contentShape(Rectangle())
+            .menuItemHighlight()
         }
         .buttonStyle(.plain)
     }
@@ -245,9 +245,41 @@ private struct QuietModeMenu: View {
         } label: {
             Label(model.quietStatus, systemImage: "moon")
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+                .menuItemHighlight()
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
+    }
+}
+
+extension View {
+    /// The accent-colored highlight of a menu item under the pointer. It reaches past the item's
+    /// text into the dropdown's padding, as a system menu's does.
+    func menuItemHighlight() -> some View {
+        modifier(MenuItemHighlight())
+    }
+}
+
+private struct MenuItemHighlight: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    private static let overhang: CGFloat = 8
+
+    func body(content: Content) -> some View {
+        let highlighted = isHovered && isEnabled
+        content
+            .padding(.horizontal, Self.overhang)
+            .padding(.vertical, 3)
+            .foregroundStyle(highlighted ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+            .background {
+                if highlighted {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.accentColor)
+                }
+            }
+            .contentShape(Rectangle())
+            .padding(.horizontal, -Self.overhang)
+            .padding(.vertical, -3)
+            .onHover { isHovered = $0 }
     }
 }
