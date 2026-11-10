@@ -11,7 +11,8 @@ final class NotesCardLayout {
     var maxNotesHeight = NotesCardContent.maxNotesHeight
     var isCompact = false
     /// Called with the drag's translation in view coordinates (y down) while the user drags the
-    /// card, and with nil when the drag ends.
+    /// card, and with nil when the drag ends. Only the header and footer drag the card, so the
+    /// notes' text stays selectable.
     @ObservationIgnored var drag: (CGSize?) -> Void = { _ in }
 }
 
@@ -76,7 +77,7 @@ struct NotesCardContent: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .contentShape(Rectangle())
-                .dragsNotesCard(layout)
+                .dragsPanel { layout.drag($0) }
         }
         .padding(EdgeInsets(top: 16, leading: 18, bottom: 14, trailing: 18))
         .frame(width: Self.width)
@@ -111,7 +112,7 @@ struct NotesCardContent: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .dragsNotesCard(layout)
+            .dragsPanel { layout.drag($0) }
             Button("Collapse notes", systemImage: "arrow.down.right.and.arrow.up.left") { layout.isCompact = true }
                 .buttonStyle(CircleButtonStyle(diameter: 28))
                 .help("Collapse notes")
@@ -160,20 +161,8 @@ struct NotesCardCompact: View {
         .frame(width: Self.width, height: Self.height)
         .glassSurface(.card, in: Capsule())
         .contentShape(Capsule())
-        .dragsNotesCard(layout)
+        .dragsPanel { layout.drag($0) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Notes for \(meeting.title), collapsed")
-    }
-}
-
-extension View {
-    /// Moves the notes card's panel when the user drags this view. The notes themselves don't
-    /// drag, so their text stays selectable.
-    func dragsNotesCard(_ layout: NotesCardLayout) -> some View {
-        gesture(
-            DragGesture(minimumDistance: 2)
-                .onChanged { layout.drag($0.translation) }
-                .onEnded { _ in layout.drag(nil) }
-        )
     }
 }

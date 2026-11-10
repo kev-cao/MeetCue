@@ -3,6 +3,8 @@ import SwiftUI
 
 struct PillStack: View {
     let model: OverlayModel
+    /// Called while the user drags a capsule, as `PanelDrag.update` expects.
+    var drag: (CGSize?) -> Void = { _ in }
 
     var body: some View {
         Group {
@@ -10,7 +12,7 @@ struct PillStack: View {
                 Color.clear
             } else {
                 TimelineView(.periodic(from: .wholeSecond, by: 1)) { _ in
-                    PillStackContent(model: model, now: model.currentTime())
+                    PillStackContent(model: model, now: model.currentTime(), drag: drag)
                 }
             }
         }
@@ -34,11 +36,14 @@ struct PillStackContent: View {
 
     let model: OverlayModel
     let now: Date
+    var drag: (CGSize?) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: Self.spacing) {
             ForEach(model.pillMeetings) { meeting in
                 Pill(model: model, meeting: meeting, now: now)
+                    .contentShape(Capsule())
+                    .dragsPanel(drag)
             }
             if let notice = model.notice {
                 Label(notice.text, systemImage: "calendar.badge.minus")
@@ -47,6 +52,8 @@ struct PillStackContent: View {
                     .padding(.horizontal, 18)
                     .frame(width: Self.width, height: Self.rowHeight, alignment: .leading)
                     .glassSurface(.card, in: Capsule())
+                    .contentShape(Capsule())
+                    .dragsPanel(drag)
             }
         }
         .padding(Self.margin)

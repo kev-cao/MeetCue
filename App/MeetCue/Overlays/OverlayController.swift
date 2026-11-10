@@ -3,9 +3,10 @@ import MeetCueCore
 import Observation
 
 /// Shows and hides the overlay panels to match `OverlayModel`. Each overlay surface gets one
-/// `sync` method. The notes card sits in the same corner as the pills, below them, until the user
-/// drags it; each new card starts in the corner, full size. The alert goes on the displays the
-/// settings choose and plays the alert sound when it appears.
+/// `sync` method. The pills and the notes card share the top-right corner, the card below the
+/// pills, until the user drags either one. The pills return to the corner once they've all closed,
+/// and each new card starts in the corner, full size. The alert goes on the displays the settings
+/// choose and plays the alert sound when it appears.
 @MainActor
 final class OverlayController {
     private let model: OverlayModel
@@ -16,9 +17,8 @@ final class OverlayController {
     private let cardPanel: CornerPanel<NotesCardStack>
     private let cardLayout = NotesCardLayout()
     private var cardMeetingID: OccurrenceID?
-    /// Where the user dragged the card's panel to, as its top-right corner in screen coordinates.
-    private var cardTopRight: NSPoint?
-    private var cardDragStart: (mouse: NSPoint, topRight: NSPoint)?
+    private var cardDrag = PanelDrag()
+    private var pillDrag = PanelDrag()
     private var keyMonitor: Any?
     private var screenObserver: NSObjectProtocol?
     private var activationObserver: NSObjectProtocol?
@@ -57,8 +57,10 @@ final class OverlayController {
 
     init(model: OverlayModel) {
         self.model = model
-        pillPanel = CornerPanel(rootView: PillStack(model: model))
+        let pillDrag = PillDragRelay()
+        pillPanel = CornerPanel(rootView: PillStack(model: model, drag: { pillDrag.drag($0) }))
         cardPanel = CornerPanel(rootView: NotesCardStack(model: model, layout: cardLayout))
+        pillDrag.drag = { [weak self] translation in self?.dragPills(by: translation) }
         cardLayout.drag = { [weak self] translation in self?.dragCard(by: translation) }
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
@@ -180,19 +182,35 @@ final class OverlayController {
     private func syncPill() {
         if model.pillMeetings.isEmpty && model.notice == nil {
             pillPanel.orderOut(nil)
+            pillDrag.reset()
         } else {
-            let rows = model.pillMeetings.count + (model.notice == nil ? 0 : 1)
-            pillPanel.place(size: PillStackContent.size(rows: rows))
+            placePills()
             pillPanel.orderFrontRegardless()
         }
+    }
+
+    private func placePills() {
+        let rows = model.pillMeetings.count + (model.notice == nil ? 0 : 1)
+        let size = PillStackContent.size(rows: rows)
+        if let topRight = pillDrag.topRight {
+            pillPanel.place(size: size, topRight: topRight, margin: PillStackContent.margin)
+        } else {
+            pillPanel.place(size: size)
+        }
+    }
+
+    private func dragPills(by translation: CGSize?) {
+        pillDrag.update(translation, mouse: NSEvent.mouseLocation, frame: pillPanel.frame)
+        placePills()
+        // A card waiting under the pills moves up into the corner once they leave it.
+        if cardDrag.topRight == nil { placeNotesCard() }
     }
 
     private func syncNotesCard() {
         let meetingID = model.notesCardMeeting?.id
         if meetingID != cardMeetingID {
             cardMeetingID = meetingID
-            cardTopRight = nil
-            cardDragStart = nil
+            cardDrag.reset()
             if cardLayout.isCompact { cardLayout.isCompact = false }
         }
         if meetingID == nil {
@@ -203,30 +221,15 @@ final class OverlayController {
         }
     }
 
-    /// `translation` is the drag's offset in the card's view (y down), or nil when the drag ends.
-    /// The mouse's screen position drives the move, since the view moves along with the panel.
     private func dragCard(by translation: CGSize?) {
-        guard let translation else {
-            cardDragStart = nil
-            if cardTopRight != nil {
-                cardTopRight = NSPoint(x: cardPanel.frame.maxX, y: cardPanel.frame.maxY)
-            }
-            return
-        }
-        let mouse = NSEvent.mouseLocation
-        let start = cardDragStart ?? (
-            mouse: NSPoint(x: mouse.x - translation.width, y: mouse.y + translation.height),
-            topRight: NSPoint(x: cardPanel.frame.maxX, y: cardPanel.frame.maxY)
-        )
-        cardDragStart = start
-        cardTopRight = NSPoint(x: start.topRight.x + mouse.x - start.mouse.x, y: start.topRight.y + mouse.y - start.mouse.y)
-        placeNotesCard()
+        cardDrag.update(translation, mouse: NSEvent.mouseLocation, frame: cardPanel.frame)
+        if translation != nil { placeNotesCard() }
     }
 
-    /// Below the pills when they show, with the pills' spacing between the visible shapes, or where
-    /// the user dragged it. Until the card reports its size, a typical one is assumed.
+    /// Below the pills when they show in the corner, with the pills' spacing between the visible
+    /// shapes, or where the user dragged it. Until the card reports its size, a typical one is assumed.
     private func placeNotesCard() {
-        let pillsHeight = pillPanel.isVisible && cardTopRight == nil
+        let pillsHeight = pillPanel.isVisible && pillDrag.topRight == nil && cardDrag.topRight == nil
             ? pillPanel.frame.height - PillStackContent.margin - NotesCardContent.margin + PillStackContent.spacing
             : 0
         if let screen = NSScreen.screens.first {
@@ -238,12 +241,19 @@ final class OverlayController {
         let fitted = size.width > 0 && size.height > 0
             ? size
             : CGSize(width: NotesCardContent.width + 2 * NotesCardContent.margin, height: 240)
-        if let cardTopRight {
+        if let cardTopRight = cardDrag.topRight {
             cardPanel.place(size: fitted, topRight: cardTopRight, margin: NotesCardContent.margin)
         } else {
             cardPanel.place(size: fitted, below: pillsHeight)
         }
     }
+}
+
+/// Lets the pill stack's view, created before the controller finishes initializing, reach the
+/// controller's drag handler.
+@MainActor
+private final class PillDragRelay {
+    var drag: (CGSize?) -> Void = { _ in }
 }
 
 extension AlertSound {

@@ -77,6 +77,45 @@ final class CornerPanel<Content: View>: OverlayPanel {
     }
 }
 
+/// Where the user drags a corner panel. The mouse's screen position drives the move, since the
+/// dragged view, and its gesture's coordinates, move along with the panel.
+struct PanelDrag {
+    /// The panel's top-right corner in screen coordinates, or nil while it hasn't been dragged.
+    private(set) var topRight: NSPoint?
+    private var start: (mouse: NSPoint, topRight: NSPoint)?
+
+    /// `translation` is the drag's offset in the view (y down), or nil when the drag ends; `frame` is
+    /// the panel's frame now. Ending the drag settles on `frame`, which placement kept on screen.
+    mutating func update(_ translation: CGSize?, mouse: NSPoint, frame: NSRect) {
+        let corner = NSPoint(x: frame.maxX, y: frame.maxY)
+        guard let translation else {
+            start = nil
+            if topRight != nil { topRight = corner }
+            return
+        }
+        let start = self.start ?? (mouse: NSPoint(x: mouse.x - translation.width, y: mouse.y + translation.height), topRight: corner)
+        self.start = start
+        topRight = NSPoint(x: start.topRight.x + mouse.x - start.mouse.x, y: start.topRight.y + mouse.y - start.mouse.y)
+    }
+
+    mutating func reset() {
+        topRight = nil
+        start = nil
+    }
+}
+
+extension View {
+    /// Calls `drag` with the translation while the user drags this view, and with nil when the
+    /// drag ends. Buttons inside keep their clicks.
+    func dragsPanel(_ drag: @escaping (CGSize?) -> Void) -> some View {
+        gesture(
+            DragGesture(minimumDistance: 2)
+                .onChanged { drag($0.translation) }
+                .onEnded { _ in drag(nil) }
+        )
+    }
+}
+
 /// Buttons in a panel that never becomes key would otherwise need a first click to focus the panel.
 final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
