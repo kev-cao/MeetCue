@@ -18,12 +18,18 @@ targets:
   MeetCue:
     type: application
     platform: macOS
-    sources: [App/MeetCue]
+    sources:
+      - path: App/MeetCue
+        excludes: [Info.plist]
     dependencies:
       - package: MeetCueCore
       - package: Markdown
+    configFiles:
+      Debug: Config/MeetCue.xcconfig
+      Release: Config/MeetCue.xcconfig
     settings:
       base:
+        INFOPLIST_FILE: App/MeetCue/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: io.github.kev-cao.MeetCue
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"

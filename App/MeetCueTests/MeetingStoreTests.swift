@@ -115,4 +115,48 @@ struct MeetingStoreTests {
         #expect(store.calendars.isEmpty)
         #expect(store.meetings(from: AppFixtures.at(0, 0), to: AppFixtures.at(0, 0, day: 5)).isEmpty)
     }
+
+    @Test func googleMeetingsJoinTheMacsAndMatchedOnesAppearOnce() {
+        let google = FakeCalendarSource()
+        let meet = URL(string: "https://meet.google.com/abc-defg-hij")!
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30), series: "shared@google.com", status: .unknown)]
+        var matched = AppFixtures.event("Team Sync (Google)", start: AppFixtures.at(14, 30), series: "shared@google.com", status: .tentative)
+        matched.url = meet
+        matched.calendarID = "google"
+        var only = AppFixtures.event("Google only", start: AppFixtures.at(16, 0), series: "g")
+        only.calendarID = "google"
+        google.snapshots = [matched, only]
+        let googleCalendar = CalendarInfo(id: "google", title: "Google Calendar", account: "me@example.com", color: .gray)
+        google.calendarList = [googleCalendar]
+        let store = MeetingStore(source: source, google: google, now: { AppFixtures.at(13, 0) }, calendar: AppFixtures.calendar)
+        store.refresh()
+        #expect(store.meetings.map(\.title) == ["Team Sync", "Google only"])
+        #expect(store.meetings.first?.joinLink?.url == meet)
+        #expect(store.meetings.first?.myStatus == .tentative)
+        #expect(store.meetings.first?.calendarID == "work")
+        #expect(store.calendars.contains(googleCalendar))
+        store.filter = CalendarFilter(hiddenCalendarIDs: ["google"])
+        #expect(store.meetings.map(\.title) == ["Team Sync"])
+    }
+
+    @Test func aDisconnectedGoogleSourceAddsNothing() {
+        let google = FakeCalendarSource()
+        google.access = .denied
+        google.snapshots = [AppFixtures.event("Google only", start: AppFixtures.at(16, 0), series: "g")]
+        source.snapshots = [AppFixtures.event(start: AppFixtures.at(14, 30))]
+        let store = MeetingStore(source: source, google: google, now: { AppFixtures.at(13, 0) }, calendar: AppFixtures.calendar)
+        store.refresh()
+        #expect(store.meetings.map(\.title) == ["Team Sync"])
+        #expect(google.queries == 0)
+    }
+
+    @Test func googleChangesRefresh() {
+        let google = FakeCalendarSource()
+        let store = MeetingStore(source: source, google: google, now: { AppFixtures.at(13, 0) }, calendar: AppFixtures.calendar)
+        store.refresh()
+        #expect(store.meetings.isEmpty)
+        google.snapshots = [AppFixtures.event("Google only", start: AppFixtures.at(16, 0), series: "g")]
+        google.onChange?()
+        #expect(store.meetings.map(\.title) == ["Google only"])
+    }
 }

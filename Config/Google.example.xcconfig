@@ -1,0 +1,2 @@
+// Copy to Google.xcconfig and set your OAuth client ID (iOS type) from Google Cloud.
+GOOGLE_CLIENT_ID =

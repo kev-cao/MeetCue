@@ -12,7 +12,7 @@ struct SettingsSnapshotTests {
     let settings = AppSettings(storage: InMemorySettingsStorage())
     let loginItem = FakeLoginItem()
 
-    func makeModel(_ section: SettingsModel.Section) -> SettingsModel {
+    func makeModel(_ section: SettingsModel.Section, google: GoogleAccount? = nil) -> SettingsModel {
         source.calendarList = SampleWeek.calendars
         let store = MeetingStore(source: source, now: { SampleWeek.now }, calendar: AppFixtures.calendar)
         store.refresh()
@@ -24,6 +24,7 @@ struct SettingsSnapshotTests {
             notes: NoteStore(repository: FlakyNoteRepository()),
             launchAtLogin: LaunchAtLogin(service: loginItem),
             notesFile: URL(fileURLWithPath: NSHomeDirectory()).appending(components: "Library", "Application Support", "MeetCue", "Notes.store"),
+            google: google,
             clock: { SampleWeek.now },
             calendar: AppFixtures.calendar,
             reveal: { _ in }
@@ -52,6 +53,32 @@ struct SettingsSnapshotTests {
     @Test func rendersCalendars() throws {
         settings.alertOffCalendarIDs = ["focus"]
         try render(makeModel(.calendars), named: "settings-calendars")
+    }
+
+    func googleAccount(clientID: String? = "123-abc.apps.googleusercontent.com", token: String? = nil) -> GoogleAccount {
+        let tokens = InMemoryTokenStore()
+        tokens.token = token
+        return GoogleAccount(clientID: clientID, tokens: tokens, http: FakeHTTPClient(), authenticator: FakeWebAuthenticator())
+    }
+
+    @Test func rendersCalendarsWithGoogle() async throws {
+        try render(makeModel(.calendars, google: googleAccount()), named: "settings-calendars-google")
+        let connected = googleAccount(token: "r1")
+        connected.email = "kevin@example.com"
+        try render(makeModel(.calendars, google: connected), named: "settings-calendars-google-connected")
+        let http = FakeHTTPClient()
+        http.token = .init(status: 400, json: #"{"error": "invalid_grant"}"#)
+        let tokens = InMemoryTokenStore()
+        tokens.token = "r1"
+        let revoked = GoogleAccount(clientID: "123-abc.apps.googleusercontent.com", tokens: tokens, http: http, authenticator: FakeWebAuthenticator())
+        _ = try? await revoked.accessToken()
+        #expect(revoked.state == .needsReconnect)
+        try render(makeModel(.calendars, google: revoked), dark: true, named: "settings-calendars-google-reconnect")
+    }
+
+    @Test func aBuildWithoutAClientIDHidesGoogle() {
+        #expect(makeModel(.calendars, google: googleAccount(clientID: nil)).google == nil)
+        #expect(makeModel(.calendars, google: googleAccount()).google != nil)
     }
 
     @Test func rendersNotes() throws {

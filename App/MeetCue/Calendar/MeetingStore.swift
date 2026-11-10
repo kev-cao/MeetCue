@@ -16,15 +16,20 @@ final class MeetingStore {
     }
 
     @ObservationIgnored private let source: CalendarSource
+    /// The connected Google account's calendar. Its meetings that are also on the Mac only add
+    /// their join link and reply to the Mac's copies; see `GoogleMerge`.
+    @ObservationIgnored private let google: CalendarSource?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let calendar: Calendar
 
-    init(source: CalendarSource, now: @escaping () -> Date = Date.init, calendar: Calendar = .autoupdatingCurrent) {
+    init(source: CalendarSource, google: CalendarSource? = nil, now: @escaping () -> Date = Date.init, calendar: Calendar = .autoupdatingCurrent) {
         self.source = source
+        self.google = google
         self.now = now
         self.calendar = calendar
         access = source.access
         source.onChange = { [weak self] in self?.refresh() }
+        google?.onChange = { [weak self] in self?.refresh() }
     }
 
     func requestAccess() async {
@@ -43,14 +48,15 @@ final class MeetingStore {
         let start = calendar.startOfDay(for: now())
         guard let end = calendar.date(byAdding: .day, value: 2, to: start) else { return }
         meetings = meetings(from: start, to: end)
-        calendars = source.calendars()
+        calendars = source.calendars() + (google?.calendars() ?? [])
     }
 
     /// Relevant meetings overlapping `start..<end`, read from the calendars now. Uses the store's
     /// filter unless given another.
     func meetings(from start: Date, to end: Date, filter: CalendarFilter? = nil) -> [Meeting] {
         guard source.access == .granted else { return [] }
-        let all = source.events(from: start, to: end).map(MeetingMapper.meeting(from:))
-        return MeetingFilter.relevant(all, filter: filter ?? self.filter)
+        let local = source.events(from: start, to: end).map(MeetingMapper.meeting(from:))
+        let remote = google.map { $0.access == .granted ? $0.events(from: start, to: end).map(MeetingMapper.meeting(from:)) : [] } ?? []
+        return MeetingFilter.relevant(GoogleMerge.merge(local: local, google: remote), filter: filter ?? self.filter)
     }
 }

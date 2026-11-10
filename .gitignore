@@ -6,3 +6,4 @@ xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 MeetCue.xcodeproj/
 build/
+Config/Google.xcconfig

@@ -126,6 +126,9 @@ struct CalendarsPane: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if let google = model.google {
+                GoogleSection(model: model, account: google)
+            }
             ForEach(model.calendarGroups) { group in
                 Section {
                     ForEach(group.calendars) { calendar in
@@ -150,6 +153,65 @@ struct CalendarsPane: View {
                 Text("Hidden calendars leave the menu bar, alerts and the calendar window. Calendars with alerts off still show the notes card. Add or remove accounts in System Settings › Internet Accounts.")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+private struct GoogleSection: View {
+    let model: SettingsModel
+    let account: GoogleAccount
+
+    var body: some View {
+        Section {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                    Text(detail)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                switch account.state {
+                case .connected:
+                    Button("Disconnect", action: model.disconnectGoogle)
+                case .connecting:
+                    ProgressView().controlSize(.small)
+                case .needsReconnect:
+                    Button("Reconnect…", action: model.connectGoogle)
+                case .disconnected, .unavailable:
+                    Button("Connect…", action: model.connectGoogle)
+                }
+            }
+            if let problem = account.problem {
+                Label(problem, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .symbolRenderingMode(.multicolor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } header: {
+            Text("Google Calendar")
+        }
+    }
+
+    private var title: String {
+        switch account.state {
+        case .connected: account.email.map { "Connected as \($0)" } ?? "Connected"
+        case .connecting: "Waiting for Google…"
+        case .needsReconnect: "Signed out by Google"
+        case .disconnected, .unavailable: "Not connected"
+        }
+    }
+
+    private var detail: String {
+        switch account.state {
+        case .connected, .connecting:
+            "Meetings on your primary Google calendar show in MeetCue with their Meet links and your replies, even if the account isn't on this Mac."
+        case .needsReconnect:
+            "Google meetings that aren't on this Mac are hidden until you reconnect."
+        case .disconnected, .unavailable:
+            "Show meetings from your primary Google calendar, with Meet links and your replies, even if the account isn't on this Mac. MeetCue only reads your events."
         }
     }
 }

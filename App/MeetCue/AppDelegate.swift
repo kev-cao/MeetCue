@@ -10,12 +10,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var calendarWindow: CalendarWindowController?
     private var settingsWindow: SettingsWindowController?
     private var hotKeys: GlobalHotKeys?
+    private var googleCalendar: GoogleCalendarSource?
     private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // `xcodebuild test` launches the app as the test host, where a calendar-access dialog would block on the user.
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
-        let store = MeetingStore(source: EventKitSource())
+        let http = URLSessionHTTPClient()
+        let google = GoogleAccount(
+            clientID: GoogleAccount.bundledClientID,
+            tokens: KeychainTokenStore(),
+            http: http,
+            authenticator: SystemWebAuthenticator()
+        )
+        let googleCalendar = GoogleCalendarSource(account: google, http: http)
+        googleCalendar.startRefreshing(every: 5 * 60)
+        self.googleCalendar = googleCalendar
+        let store = MeetingStore(source: EventKitSource(), google: googleCalendar)
         let quiet = QuietMode()
         let settings = AppSettings()
         let notes = NoteStore(repository: Self.noteRepository())
@@ -38,7 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 visibility: visibility,
                 notes: notes,
                 launchAtLogin: LaunchAtLogin(),
-                notesFile: try? SwiftDataNoteRepository.defaultURL()
+                notesFile: try? SwiftDataNoteRepository.defaultURL(),
+                google: google
             ),
             dock: dock
         )
@@ -68,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         }
         observeSystemChanges {
+            googleCalendar.invalidate()
             store.refresh()
             model.tick()
             scheduler.refresh()

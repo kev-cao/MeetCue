@@ -23,6 +23,8 @@ final class SettingsModel {
     let quiet: QuietMode
     let store: MeetingStore
     let launchAtLogin: LaunchAtLogin
+    /// Nil when the build can't connect to Google.
+    let google: GoogleAccount?
     @ObservationIgnored private let visibility: CalendarVisibility
     @ObservationIgnored private let notes: NoteStore
     @ObservationIgnored private let notesFile: URL?
@@ -38,6 +40,7 @@ final class SettingsModel {
         notes: NoteStore,
         launchAtLogin: LaunchAtLogin,
         notesFile: URL?,
+        google: GoogleAccount? = nil,
         clock: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
         reveal: @escaping @MainActor (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
@@ -49,6 +52,7 @@ final class SettingsModel {
         self.notes = notes
         self.launchAtLogin = launchAtLogin
         self.notesFile = notesFile
+        self.google = google.flatMap { $0.state == .unavailable ? nil : $0 }
         self.clock = clock
         self.calendar = calendar
         self.reveal = reveal
@@ -84,6 +88,16 @@ final class SettingsModel {
     func alertsOn(_ calendarID: String) -> Bool { visibility.alertsOn(calendarID) }
 
     func setAlertsOn(_ on: Bool, calendarID: String) { visibility.setAlertsOn(on, calendarID: calendarID) }
+
+    func connectGoogle() {
+        guard let google else { return }
+        Task { await google.connect() }
+    }
+
+    func disconnectGoogle() {
+        guard let google else { return }
+        Task { await google.disconnect() }
+    }
 
     // MARK: Notes
 
