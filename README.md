@@ -150,4 +150,4 @@ MeetCueCore/               Swift package with the decision logic and its tests:
 
 ## Privacy
 
-MeetCue reads your calendars on your Mac through Apple's EventKit and never changes them. Notes stay on your Mac, in `~/Library/Application Support/MeetCue`. If you connect a Google account, MeetCue reads that account's events from Google with read-only access, keeps them in memory only, and stores the sign-in token in your keychain. Nothing else is sent anywhere.
+MeetCue reads your calendars on your Mac through Apple's EventKit and never changes them. Notes stay on your Mac, in `~/Library/Application Support/MeetCue`. If you connect a Google account, MeetCue reads that account's events from Google with read-only access, keeps them in memory only, and stores the sign-in token in your keychain. Nothing else is sent anywhere. The full policy is in [PRIVACY.md](PRIVACY.md).
