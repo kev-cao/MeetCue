@@ -47,7 +47,9 @@ final class CalendarWindowModel {
     @ObservationIgnored private let openURL: @MainActor (URL) -> Void
     @ObservationIgnored private var isTracking = false
     @ObservationIgnored private var loadedRevision = -1
-    @ObservationIgnored private var today: Date
+    /// The start of today, moved on by `dayDidChange()`. Views read it through `isToday`, so the
+    /// days they mark change when it does.
+    private(set) var today: Date
 
     init(
         store: MeetingStore,
@@ -158,7 +160,7 @@ final class CalendarWindowModel {
         return "\(dayLabel(day)), \(count == 0 ? "no events" : count == 1 ? "1 event" : "\(count) events")"
     }
 
-    func isToday(_ day: Date) -> Bool { calendar.isDate(day, inSameDayAs: clock()) }
+    func isToday(_ day: Date) -> Bool { calendar.isDate(day, inSameDayAs: today) }
 
     func isInAnchorMonth(_ day: Date) -> Bool { calendar.isDate(day, equalTo: anchor, toGranularity: .month) }
 

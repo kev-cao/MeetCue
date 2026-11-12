@@ -186,6 +186,25 @@ struct CalendarWindowModelTests {
         #expect(model.isToday(AppFixtures.at(0, 0, day: 5)))
     }
 
+    /// Views that asked which day is today redraw when the day changes, so only one day is marked.
+    @Test func viewsThatShowTodayRedrawAtMidnight() {
+        var now = AppFixtures.at(23, 59)
+        let model = makeModel(now: { now })
+        model.step(1)
+        let redrawn = Flag()
+        withObservationTracking {
+            _ = model.isToday(AppFixtures.at(0, 0))
+        } onChange: {
+            redrawn.value = true
+        }
+        now = AppFixtures.at(0, 1, day: 5)
+        #expect(model.isToday(AppFixtures.at(0, 0)))
+        model.dayDidChange()
+        #expect(redrawn.value)
+        #expect(!model.isToday(AppFixtures.at(0, 0)))
+        #expect(model.isToday(AppFixtures.at(0, 0, day: 5)))
+    }
+
     @Test func aViewOnAnotherDayStaysPutAcrossMidnight() {
         var now = AppFixtures.at(23, 59)
         let model = makeModel(now: { now })

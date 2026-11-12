@@ -24,6 +24,7 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
         if !window.isVisible && !window.isMiniaturized {
             model.editorMode = settings.notesEditorMode
         }
+        model.dayDidChange()
         if let meeting {
             model.show(meeting)
         } else {
