@@ -33,11 +33,25 @@ final class DropdownPanel: NSPanel {
 
     /// Replaces the content, so each opening starts fresh like a menu: an empty topic field
     /// with the focus in it.
+    ///
+    /// The content keeps its ideal height whatever the panel's size, and the panel takes that height
+    /// rounded up to whole points. Otherwise a fractional height rounds differently on each layout
+    /// pass, and resizing the panel to match lays the content out again without end.
     func show(_ content: some View) {
-        let controller = NSHostingController(rootView: content.background(MenuMaterial(cornerRadius: Self.cornerRadius)))
-        controller.sizingOptions = .preferredContentSize
+        let root = content
+            .fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { [weak self] size in self?.fit(size) }
+            .background(MenuMaterial(cornerRadius: Self.cornerRadius))
+        let controller = NSHostingController(rootView: root)
+        controller.sizingOptions = []
         contentViewController = controller
-        setContentSize(controller.view.fittingSize)
+        fit(controller.sizeThatFits(in: NSSize(width: 10_000, height: 10_000)))
+    }
+
+    private func fit(_ size: CGSize) {
+        let rounded = NSSize(width: size.width.rounded(.up), height: size.height.rounded(.up))
+        guard rounded.width > 0, rounded.height > 0, rounded != contentLayoutRect.size else { return }
+        setContentSize(rounded)
     }
 
     override var canBecomeKey: Bool { true }
