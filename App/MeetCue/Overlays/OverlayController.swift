@@ -3,22 +3,26 @@ import MeetCueCore
 import Observation
 
 /// Shows and hides the overlay panels to match `OverlayModel`. Each overlay surface gets one
-/// `sync` method. The pills and the notes card share the top-right corner, the card below the
-/// pills, until the user drags either one. The pills return to the corner once they've all closed,
-/// and each new card starts in the corner, full size. The alert goes on the displays the settings
-/// choose and plays the alert sound when it appears.
+/// `sync` method. The pills and the notes card appear in the top-right corner of the display under
+/// the pointer, which for the pills is the display where the user clicked Move to corner. On the
+/// same display the card sits below the pills, until the user drags either one. The pills return to
+/// the corner once they've all closed, and each new card starts in the corner, full size. The alert
+/// goes on the displays the settings choose and plays the alert sound when it appears.
 @MainActor
 final class OverlayController {
     private let model: OverlayModel
-    private var alertPanels: [AlertPanel] = []
+    private(set) var alertPanels: [AlertPanel] = []
     private var alertPanelDisplays: AlertDisplays?
     private var shownStates: [OccurrenceID: OverlayState] = [:]
-    private let pillPanel: CornerPanel<PillStack>
+    let pillPanel: CornerPanel<PillStack>
     private let cardPanel: CornerPanel<NotesCardStack>
     private let cardLayout = NotesCardLayout()
     private var cardMeetingID: OccurrenceID?
     private var cardDrag = PanelDrag()
     private var pillDrag = PanelDrag()
+    /// The displays the pills and the card appeared on, kept while they show.
+    private var pillScreen: NSScreen?
+    private var cardScreen: NSScreen?
     private var keyMonitor: Any?
     private var screenObserver: NSObjectProtocol?
     private var activationObserver: NSObjectProtocol?
@@ -43,6 +47,15 @@ final class OverlayController {
     /// now. Expanding a pill and rebuilding the panels for a display change are silent.
     static func alertChimes(from shown: [OccurrenceID: OverlayState], to wanted: [OccurrenceID: OverlayState]) -> Bool {
         wanted.contains { id, state in state == .alert && shown[id] != .alert && shown[id] != .pill }
+    }
+
+    /// The screen whose frame contains `mouse`, or the first screen (the one with the menu bar).
+    static func screen<Screen>(under mouse: NSPoint, in screens: [Screen], frame: (Screen) -> NSRect) -> Screen? {
+        screens.first { NSMouseInRect(mouse, frame($0), false) } ?? screens.first
+    }
+
+    private func pointerScreen() -> NSScreen? {
+        Self.screen(under: NSEvent.mouseLocation, in: NSScreen.screens, frame: \.frame)
     }
 
     /// Caps Lock, keypad, function and help flags don't count as modifiers.
@@ -173,6 +186,8 @@ final class OverlayController {
     }
 
     private func screensChanged() {
+        pillScreen = nil
+        cardScreen = nil
         closeAlert()
         syncAlert()
         syncPill()
@@ -183,7 +198,9 @@ final class OverlayController {
         if model.pillMeetings.isEmpty && model.notice == nil {
             pillPanel.orderOut(nil)
             pillDrag.reset()
+            pillScreen = nil
         } else {
+            if pillScreen == nil { pillScreen = pointerScreen() }
             placePills()
             pillPanel.orderFrontRegardless()
         }
@@ -194,8 +211,8 @@ final class OverlayController {
         let size = PillStackContent.size(rows: rows)
         if let topRight = pillDrag.topRight {
             pillPanel.place(size: size, topRight: topRight, margin: PillStackContent.margin)
-        } else {
-            pillPanel.place(size: size)
+        } else if let pillScreen {
+            pillPanel.place(size: size, on: pillScreen)
         }
     }
 
@@ -211,11 +228,14 @@ final class OverlayController {
         if meetingID != cardMeetingID {
             cardMeetingID = meetingID
             cardDrag.reset()
+            cardScreen = nil
             if cardLayout.isCompact { cardLayout.isCompact = false }
         }
         if meetingID == nil {
             cardPanel.orderOut(nil)
+            cardScreen = nil
         } else {
+            if cardScreen == nil { cardScreen = pointerScreen() }
             placeNotesCard()
             cardPanel.orderFrontRegardless()
         }
@@ -226,13 +246,13 @@ final class OverlayController {
         if translation != nil { placeNotesCard() }
     }
 
-    /// Below the pills when they show in the corner, with the pills' spacing between the visible
+    /// Below the pills when they show in the same corner, with the pills' spacing between the visible
     /// shapes, or where the user dragged it. Until the card reports its size, a typical one is assumed.
     private func placeNotesCard() {
-        let pillsHeight = pillPanel.isVisible && pillDrag.topRight == nil && cardDrag.topRight == nil
+        let pillsHeight = pillPanel.isVisible && pillDrag.topRight == nil && cardDrag.topRight == nil && pillScreen == cardScreen
             ? pillPanel.frame.height - PillStackContent.margin - NotesCardContent.margin + PillStackContent.spacing
             : 0
-        if let screen = NSScreen.screens.first {
+        if let screen = cardScreen ?? NSScreen.screens.first {
             let room = screen.visibleFrame.height - pillsHeight - 2 * NotesCardContent.margin - NotesCardContent.chromeHeight
             let maxNotesHeight = max(120, min(NotesCardContent.maxNotesHeight, room))
             if cardLayout.maxNotesHeight != maxNotesHeight { cardLayout.maxNotesHeight = maxNotesHeight }
@@ -243,8 +263,8 @@ final class OverlayController {
             : CGSize(width: NotesCardContent.width + 2 * NotesCardContent.margin, height: 240)
         if let cardTopRight = cardDrag.topRight {
             cardPanel.place(size: fitted, topRight: cardTopRight, margin: NotesCardContent.margin)
-        } else {
-            cardPanel.place(size: fitted, below: pillsHeight)
+        } else if let cardScreen {
+            cardPanel.place(size: fitted, below: pillsHeight, on: cardScreen)
         }
     }
 }
